@@ -1,6 +1,0 @@
-interface:
-  display_name: "Setup Foundation Integrity"
-  short_description: "Wire the foundation gate into this repo"
-  default_prompt: "Use $setup-foundation-integrity to detect this repo's setup, then add the foundation-gate operating rules to CLAUDE.md/AGENTS.md and write the consumer docs."
-policy:
-  allow_implicit_invocation: false

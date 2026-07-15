@@ -1,0 +1,40 @@
+{
+  "name": "foundation-integrity",
+  "version": "0.3.0",
+  "description": "A foundation gate and transparent coworker policy that prevent locally-correct features from cementing weak architecture, with a pinned Matt Pocock workflow companion and preconfigured repo conventions.",
+  "author": {
+    "name": "long7400",
+    "url": "https://github.com/long7400"
+  },
+  "homepage": "https://github.com/long7400/foundation-integrity",
+  "repository": "https://github.com/long7400/foundation-integrity",
+  "license": "MIT",
+  "keywords": [
+    "engineering",
+    "architecture",
+    "foundation",
+    "code-review",
+    "skills"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Foundation Integrity",
+    "shortDescription": "Audit the foundation before building on it",
+    "longDescription": "A standalone foundation gate, adversarial review, health audit, and transparent coworker policy, distributed with a commit-pinned Matt Pocock workflow companion and separate Claude/Codex standalone skill projections.",
+    "developerName": "long7400",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/long7400/foundation-integrity",
+    "privacyPolicyURL": "https://github.com/long7400/foundation-integrity/blob/main/PRIVACY.md",
+    "termsOfServiceURL": "https://github.com/long7400/foundation-integrity/blob/main/TERMS.md",
+    "defaultPrompt": [
+      "Audit the foundation before designing this feature.",
+      "Challenge this foundation receipt in an independent session.",
+      "Review cumulative foundation health and rank the repair backlog."
+    ]
+  }
+}

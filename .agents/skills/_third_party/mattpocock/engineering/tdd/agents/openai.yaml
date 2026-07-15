@@ -1,0 +1,4 @@
+interface:
+  display_name: "TDD"
+  short_description: "Use test-first proof when it is the strongest surface"
+  default_prompt: "Use $tdd when a failing test is the strongest proof: lock the owner boundary, invariant, red signal, and slice scope first; challenge fake passes and choose a stronger repro, validator, benchmark, or boundary artifact when tests are not the right surface."

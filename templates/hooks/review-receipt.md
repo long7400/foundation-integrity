@@ -27,7 +27,7 @@ There are two modes, and they promise different things:
 
 ## The v2 receipt block
 
-Put a receipt in `.foundation/receipts/<short-name>.md`, or embed the same block in a
+Put a receipt in `docs/foundation/receipts/<short-name>.md`, or embed the same block in a
 full ADR under `docs/adr/`. The machine-read part is the delimited block below; write
 whatever prose you like around it.
 

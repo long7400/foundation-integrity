@@ -1,0 +1,4 @@
+interface:
+  display_name: "Research"
+  short_description: "Research locally from high-trust sources"
+  default_prompt: "Use $research to investigate primary sources, keep the working note local under ignored docs/research/ when available, and promote only accepted decision-lossless conclusions into canonical project records."

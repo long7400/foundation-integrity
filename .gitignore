@@ -6,3 +6,15 @@
 
 # Node (only if a stack ever lands here)
 node_modules/
+
+# Foundation Integrity runtime, research, plan, and Herdr/process artifacts are
+# session-local and must never be pushed from a consumer repo.
+.foundation/
+
+# Per-project research notes are local working material. Promote accepted decisions
+# to docs/adr/ or docs/foundation/receipts/ before sharing them.
+docs/research/*
+!docs/research/.gitkeep
+
+# User-provided scratch inputs (for example a temporary skill drop) are local only.
+tmp/

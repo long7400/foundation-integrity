@@ -24,7 +24,7 @@
 #     mode (pre-push / CI); in worktree mode it degrades to advisory + a deferral note.
 #
 # Receipt format: the v2 block in templates/hooks/review-receipt.md. Receipt files are
-# matched under **/adr/*.md and .foundation/receipts/*.md.
+# matched under **/adr/*.md and docs/foundation/receipts/*.md.
 #
 # Modes of evaluation:
 #   worktree (default) — staged + unstaged + untracked vs HEAD. Pre-commit / mid-session.
@@ -204,7 +204,7 @@ else
   } | sort -u > "$tmpd/all"
 fi
 [ -s "$tmpd/hits" ] || exit 0
-grep -iE '((^|/)adr/.*\.md$)|(\.foundation/receipts/.*\.md$)' "$tmpd/all" > "$tmpd/receipts" 2>/dev/null || true
+grep -iE '((^|/)adr/.*\.md$)|(docs/foundation/receipts/.*\.md$)' "$tmpd/all" > "$tmpd/receipts" 2>/dev/null || true
 
 # Bind each receipt to the exact revision and changed-content manifest. Receipt/ADR
 # files are excluded from the manifest to avoid a self-referential digest; their
@@ -218,7 +218,7 @@ expected_revision=$(git rev-parse "$base_ref" 2>/dev/null || true)
   while IFS= read -r f; do
     [ -n "$f" ] || continue
     case "$f" in
-      */adr/*.md|.foundation/receipts/*.md) continue ;;
+      */adr/*.md|docs/foundation/receipts/*.md) continue ;;
     esac
     if [ -n "$range" ]; then
       oid=$(git rev-parse "$head_ref:$f" 2>/dev/null || printf '%s' DELETED)
@@ -287,7 +287,7 @@ Each surface file above changed but no valid ADR/receipt in this change set name
   1. Run foundation-audit on the claim the change load-bears on.
   2. If a foundation surface is touched, run adversarial-foundation-review in a
      SEPARATE session (ideally a different model). Record its verdict.
-  3. Write a v2 receipt (.foundation/receipts/) or ADR naming the exact paths above.
+  3. Write a v2 receipt (docs/foundation/receipts/) or ADR naming the exact paths above.
      See templates/hooks/review-receipt.md.
 In attested mode the receipt's reviewer must match a signed, trusted attestation.
 This makes skipping the review a visible, auditable act; advisory mode is not proof

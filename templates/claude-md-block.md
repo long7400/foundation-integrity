@@ -6,6 +6,7 @@ The gate that runs before building on a foundation, so a capable agent doesn't b
 
 - Before design or implementation is frozen for a non-trivial feature, module, mechanism, migration, or refactor, run `foundation-audit`. Record exactly one outcome: `PROCEED`, `RESEARCH_ONLY`, or `NO_GO`; only `PROCEED` may authorize implementation. Skip only work that is clearly mechanical or local with no plausible architectural effect — and say in one line why the skip is safe.
 - The audit's first objective is to **falsify** the foundation claims the work depends on, not to make the feature fit the current code at any cost. A foundation repair, a research blocker, or an evidence-backed no-go is a valid outcome; feature completion is not the only success.
+- Challenge the system archetype as well as the local implementation: expected category versus observed category, primary evidence for the simplest established alternative, the project constraint that justifies deviation, and the compensating complexity that would disappear. If that comparison is load-bearing but evidence is missing, stop at `RESEARCH_ONLY`; never invent an industry standard.
 - Classify the foundation as exactly one of `FOUNDATION_OK`, `FOUNDATION_SUSPECT`, `FOUNDATION_BLOCKED`, record the explicit outcome, and choose one justified route: Foundation-first, Bounded-compatibility, or Feature-first.
 - Stop before implementation when the path would violate an invariant or trust boundary, create a second source of truth, require repeated exceptions, or materially entrench a known mismatch. If active harm exists, apply the smallest containment first, then decide.
 - Shared anti-pattern names are mnemonics, not verdicts. A name is useful only when it points to a foundation claim, primary evidence, a disconfirming probe, and an acceptance/fitness check.
@@ -18,10 +19,11 @@ The gate that runs before building on a foundation, so a capable agent doesn't b
 ### Independent check — triggered by facts, not by the self-rating
 
 - Run `adversarial-foundation-review` in a **separate session** (ideally a different model) whenever an *observable condition* fires: the change touches a foundation surface (public API, schema, migration, auth, core domain, shared module), a mismatch signal appeared, or a wired fitness check regressed. The self-rating (`SUSPECT`/`BLOCKED`) is one trigger among these — never the only one. You must not be able to skip the second opinion by grading yourself `OK`.
+- Native subagent/background delegation is disabled for this pack. If a companion workflow asks for subagents, background work, or parallel reviewers, translate the intent into a root-owned open task packet when external coworker mode is available; otherwise perform the review locally or report that the independent session is unavailable. Do not create a second control plane; workers do not learn transport topology, and implementers cannot self-approve durable changes.
 
 ### Machine-measured fitness (where a code stack exists)
 
-- Structural health is enforced by fitness checks, not good faith: dependency direction, no cycles, layering, complexity, cross-boundary change-coupling. A claim rated `OK` should point at the check that enforces it. Green fitness checks are necessary, not sufficient — they prove no rule broke, not that the design is right.
+- Structural health is enforced by fitness checks, not good faith: dependency direction, no cycles, layering, complexity, cross-boundary change-coupling. Select proof by claim—repro, contract test, validator, benchmark, runtime observation, visual check, or owner-boundary evidence—and prefer proof that survives harmless internal refactors. A claim rated `OK` should point at the check that enforces it. Green fitness checks are necessary, not sufficient — they prove no rule broke, not that the design is right.
 - Hooks run these checks whether or not the agent wants them to. The surface-guard removes the self-grade escape — it fires on a changed surface file with no valid receipt naming it, making a skipped review visible and costly. In the default *advisory* mode the receipt is author-writable (records a decision, doesn't prove a review ran); the opt-in *attested* mode additionally requires a signed, trusted-reviewer attestation, and is only meaningful if the signing key lives outside the agent's reach and protected CI re-runs the check.
 
 ### Cumulative check
@@ -33,7 +35,8 @@ The gate that runs before building on a foundation, so a capable agent doesn't b
 - For any Foundation-first or Bounded-compatibility route, write an ADR (`docs/adr/`) capturing the claim, the counter-evidence, the chosen route, and — for a temporary seam — its removal condition.
 
 <!-- FOUNDATION-INTEGRITY:WORKFLOW-PACK-INTEGRATION
-Included by setup-foundation-integrity only when a workflow pack was detected.
+Included by the maintained repo configuration when a workflow pack is detected;
+there is no hidden setup skill or second setup control plane.
 Remove this section if no such pack is installed. -->
 ### Workflow-pack integration
 

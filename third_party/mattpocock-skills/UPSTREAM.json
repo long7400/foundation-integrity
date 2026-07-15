@@ -1,0 +1,24 @@
+{
+  "name": "mattpocock/skills",
+  "repository": "https://github.com/mattpocock/skills",
+  "commit": "e9fcdf95b402d360f90f1db8d776d5dd450f9234",
+  "retrieved_at": "2026-07-16",
+  "license": "MIT",
+  "selection": "The 22 skill directories listed in the pinned upstream .claude-plugin/plugin.json, minus the upstream setup skill which is preconfigured in this distribution",
+  "snapshot_root": "skills/_third_party/mattpocock",
+  "hash_manifest": "third_party/mattpocock-skills/promoted-files.sha256",
+  "local_patches": [
+    "skills/_third_party/mattpocock/engineering/codebase-design/SKILL.md",
+    "skills/_third_party/mattpocock/engineering/code-review/SKILL.md",
+    "skills/_third_party/mattpocock/engineering/tdd/SKILL.md",
+    "skills/_third_party/mattpocock/engineering/to-spec/SKILL.md",
+    "skills/_third_party/mattpocock/engineering/wayfinder/SKILL.md",
+    "skills/_third_party/mattpocock/engineering/ask-matt/SKILL.md",
+    "skills/_third_party/mattpocock/engineering/triage/SKILL.md",
+    "skills/_third_party/mattpocock/engineering/to-tickets/SKILL.md",
+    "skills/_third_party/mattpocock/engineering/research/SKILL.md",
+    "skills/_third_party/mattpocock/engineering/improve-codebase-architecture/SKILL.md",
+    "skills/_third_party/mattpocock/engineering/codebase-design/DESIGN-IT-TWICE.md"
+  ],
+  "excluded_upstream_skill": "skills/engineering/setup-matt-pocock-skills"
+}

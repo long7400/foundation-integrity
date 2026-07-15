@@ -2,6 +2,12 @@
 
 Use one copy per run. This is a comparison and lifecycle record, not an automatic score or promotion gate.
 
+Keep raw current-state, worker, transcript, baseline, and pilot artifacts under ignored
+runtime/research storage while the run is active. After the root decision, promote the
+accepted decision-lossless receipt (verdict, rationale, decisive evidence hashes,
+strongest alternative, and next removal point) into `docs/foundation/receipts/` or an
+ADR. Never leave durable acceptance represented only by ignored `.foundation/` state.
+
 Fill the machine-bound block and run `scripts/check-pilot-run-receipt.sh <run-contract.tsv> <pilot-run-receipt.md> <role-model-matrix.tsv>`. The validator binds the contract/matrix, root current state, exact worker artifact, transcript, and baseline/pilot result artifacts by SHA-256. It also requires fresh-session policy and a passed write-isolation smoke. It still does not validate reasoning quality or the root's decision.
 
 ```markdown

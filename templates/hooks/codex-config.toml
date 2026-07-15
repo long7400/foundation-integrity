@@ -7,8 +7,8 @@
 # Claude settings; only the wiring format differs.
 #
 # Each handler MUST set `type = "command"` — Codex rejects a handler without it.
-# The command runs via `sh -c` so an inline env prefix (FI_BLOCK=1 ...) is honoured;
-# a bare string handler may be exec'd directly, not through a shell.
+# The command runs via `sh -c` so paths and any explicitly opted-in environment
+# policy are interpreted consistently.
 #
 # Requires: features.hooks = true (features.codex_hooks is a deprecated alias).
 # Adjust command paths if you vendored templates/hooks/scripts elsewhere.
@@ -22,11 +22,12 @@ hooks = true
 type = "command"
 command = "sh -c 'templates/hooks/scripts/foundation-surface-guard.sh'"
 
-# At end of turn: block on an un-recorded surface change, then run the structural check.
+# At end of turn: warn on an un-recorded surface change, then run the structural check.
+# Hard blocking belongs in the explicit pre-push/CI wiring, not every agent turn.
 [[hooks.Stop]]
 [[hooks.Stop.hooks]]
 type = "command"
-command = "sh -c 'FI_BLOCK=1 templates/hooks/scripts/foundation-surface-guard.sh'"
+command = "sh -c 'templates/hooks/scripts/foundation-surface-guard.sh'"
 [[hooks.Stop.hooks]]
 type = "command"
 command = "sh -c 'templates/hooks/scripts/fitness-check.sh'"

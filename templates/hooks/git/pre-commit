@@ -7,7 +7,7 @@
 # `--no-verify`.
 #
 # Install: copy to .git/hooks/pre-commit and `chmod +x`, or point core.hooksPath at
-# the dir holding this file. setup-foundation-integrity can wire this for you.
+# the dir holding this file. Keep the wiring explicit and reviewable.
 #
 # Adjust the path below if you vendored the scripts elsewhere.
 set -eu

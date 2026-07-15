@@ -14,8 +14,16 @@ The work load-bears on the pack's single-source-of-truth, dual-runtime, measurem
 ## Counter-evidence
 
 - `CLAUDE.md` explicitly says the canonical repo guide is `AGENTS.md` and imports it with `@AGENTS.md`.
-- Before this decision, `skills/setup-foundation-integrity/SKILL.md` selected `CLAUDE.md` whenever it existed. On this repo that could write a Foundation Integrity block into the forwarding shim and create a second authority.
-- The sanitized [Herdr status observation](../research/2026-07-15-herdr-status-observation.md) records the version, commands, output shape, and uncertainty from the live pilot. It shows that a fresh worker may be `idle` and that rendered task completion can disagree with the detected status, so status cannot be acceptance evidence.
+- Before this decision, the retired setup skill selected `CLAUDE.md` whenever it
+  existed. On this repo that could write a Foundation Integrity block into the
+  forwarding shim and create a second authority; setup is now preconfigured and
+  carries no runtime command.
+- A sanitized live status observation at revision
+  `1fc2da4b1095975be9671cae084c7f0b24bd2f1d` established that a fresh worker may
+  report `idle` before receiving work, can transition to `working`, and can render a
+  final response while the detected status still reports `working` and a bounded
+  wait for `done` times out. Therefore transport status cannot be acceptance
+  evidence. Pane/session identifiers and raw process transcripts remain local.
 - Herdr source at commit [`d0111c9f9022e0ec26d8f03236a91b026b567d45`](https://github.com/ogulcancelik/herdr/commit/d0111c9f9022e0ec26d8f03236a91b026b567d45) reports Codex session identity and restores with plain `codex resume <id>` (`src/integration/assets/codex/herdr-agent-state.sh`, `src/agent_resume.rs`). This proves conversation continuity, not profile, sandbox, instruction, cwd, worktree, or authority continuity.
 - FirstMate commit [`e063ca5e2459ea8cbcefb1d58310b3617318bfb8`](https://github.com/kunchenguid/firstmate/commit/e063ca5e2459ea8cbcefb1d58310b3617318bfb8) contains useful mechanisms—worktree isolation, durable metadata, event/poll fallback, provenance-aware teardown, and session locks—but also a large distro/state machine whose installation would violate the requested mechanism and increase blast radius.
 - Independent read-only peer sessions disagreed on which proposed rules are invariants versus heuristics. The strongest counter-design keeps root global authority but permits bounded peer coordination; that remains an experiment, not pack doctrine.

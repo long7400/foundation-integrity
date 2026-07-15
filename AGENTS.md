@@ -4,22 +4,36 @@ This repo is a dual-runtime agent-skills pack (Claude Code + OpenAI Codex). It a
 
 ## Repo invariants
 
-- **Dual-format parity.** Every skill is one `skills/<name>/SKILL.md` (shared by both runtimes) plus `skills/<name>/agents/openai.yaml` (the Codex interface). If a skill's purpose changes, update both — they must not drift.
-- **Compose, don't bundle.** Never vendor, copy, or fork another pack's files (e.g. `mattpocock/skills`). Integration with another pack is reference lines only, so removing that pack degrades gracefully and never breaks this one.
+- **Canonical source plus runtime projections.** `skills/` is the plugin-authoring
+  source. `.claude/skills/` is the Claude project projection and must not contain
+  Codex-only `agents/openai.yaml`; `.agents/skills/` is the Codex project projection
+  and must contain the matching interface metadata. Regenerate both projections and
+  run parity checks after every source change.
+- **Standalone core, explicit companion boundary.** The three Foundation Integrity skills and root-owned protocol must work without any companion. This distribution may carry a commit-pinned companion under `skills/_third_party/` only when its license, allowlist, upstream hashes, explicit local patch ledger, update record, and removal test are present. Do not derive the foundation gate or coworker authority from the companion, and never patch vendored content without recording the research and hash change.
 - **Portable skill bodies.** `SKILL.md` must not hardcode stack-specific tool names (no "Flyway", "ArchUnit", etc.). Stack-specific detail lives in `templates/` only. The skills stay tech-neutral. A `SKILL.md` may reference the fitness *intents* (dependency direction, no cycles, layering) and link to `templates/fitness/`; the concrete tool names (dependency-cruiser, ArchUnit, import-linter, go-arch-lint) live only in `templates/fitness/adapters/` and `templates/hooks/`.
 - **Reasoning layer is backed by a measurement layer.** The gate depends on the running session's honesty, and an agent grading its own foundation hits a measured self-preference bias. So every good-faith check (`foundation-audit`, receipts, self-ratings) must be backed by something that needs no good faith — fitness functions and hooks in `templates/`. Don't ship a change that makes the pack rely on self-attestation alone.
 - **Hooks stay proportional and dual-wired.** Hook scripts are shared (`templates/hooks/scripts/`); only the wiring differs per runtime (git / Claude `settings.json` / Codex `config.toml`). Keep default posture warn, scope to foundation-surface paths, and keep git-level enforcement runtime-neutral so switching runtime can't bypass it.
 - **Protocol is not workflow.** A session backend may provide terminals, identity hints, status events, and resume pointers; it must not become the authority for task state, acceptance, evidence, or release decisions. Optional orchestration material stays transparent, replaceable, and outside the default setup path until measured pilots justify promotion.
 - **Runtime parity without false equivalence.** Codex profiles and Claude launch envelopes implement the same role/model policy through different native configuration surfaces. Keep one transport-neutral contract, explicit runtime adapters, and parity checks over the architectural properties each must preserve.
-- **Manifests stay in sync.** `.claude-plugin/plugin.json` `skills[]` and `.claude-plugin/marketplace.json` must match the actual `skills/` directories.
+- **Manifests stay in sync.** `.claude-plugin/plugin.json` `skills[]`,
+  `.codex-plugin/plugin.json`, the marketplace, canonical `skills/`, and both runtime
+  projections must expose the same 24 skill names (three first-party, 21 companion).
+- **Runtime/process state is never canonical.** Ignore all `.foundation/` and `tmp/`
+  content. Durable receipts, research conclusions, ADRs, domain docs, and acceptance
+  evidence belong under `docs/` or `CONTEXT.md`, not in the orchestration workspace.
 - **The pack obeys its own doctrine.** Single source of truth, recorded decisions, no unverified claims shipped as fact. If a change to this repo would violate that, it's a bug in the pack.
 
 ## Structure
 
 ```
 .claude-plugin/     plugin.json + marketplace.json (Claude Code plugin manifests)
-skills/             one dir per skill: SKILL.md + agents/openai.yaml
-templates/          what setup writes into a target repo
+.codex-plugin/      plugin.json (Codex plugin manifest)
+.claude/skills/     standalone Claude project-skill projection
+.agents/skills/     standalone Codex project-skill projection
+skills/             canonical plugin skill source: SKILL.md + agents/openai.yaml
+  _third_party/     pinned companion snapshots; never a source of first-party authority
+third_party/        provenance, license, hash locks, and patch ledgers for companions
+templates/          explicit maintainer wiring and reusable policy templates
   claude-md-block.md    the operating-rules block injected into CLAUDE.md/AGENTS.md
   setup/                transparent helpers used to resolve setup ownership
   docs/                 consumer rules + the rationale write-up
@@ -31,19 +45,37 @@ docs/               decisions and research evidence about this pack itself
 tests/              repo-contract checks for ownership, parity, and template scripts
 ```
 
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues for `long7400/foundation-integrity`; see `docs/agents/issue-tracker.md`.
+
+### Domain docs
+
+Single-context layout (`CONTEXT.md` + `docs/adr/`), with research and evidence kept
+as canonical text; see `docs/agents/domain.md`.
+
+### Triage labels
+
+Use the five labels recorded in `docs/agents/triage-labels.md`; do not create a second
+state vocabulary.
+
 ## Personal Operating Rules
 
 ### External Coworker Authority
 
 - Exactly one root/main session owns external coworker launch, task-graph mutation, validation leases, acceptance, release, and teardown. The root chooses coworker count from independent dependency units; no fixed department size is policy.
-- Do not mix externally managed top-level coworkers with native subagents in one run. Root/lead launch envelopes disable native multi-agent tools. Non-root roles never delegate or supervise.
+- Native subagent/background delegation is disabled for this pack. Do not mix it with externally managed top-level coworkers, and do not silently fall back to it when the external runtime is unavailable; run the review locally or report the missing independent session. Root/lead launch envelopes disable native multi-agent tools. Non-root roles never delegate or supervise.
+- Companion workflow skills may mention subagents, background agents, or parallel reviewers. Treat those as a request for root-owned independent work, not permission to open a second control plane. The root translates the intent into an open task packet; workers never receive transport topology, and implementers never self-approve.
 - Shared instructions remain transport-neutral. Backend commands and topology belong only to the root/lead launch envelope; worker, implementer, peer, and reviewer prompts must not expose the backend protocol.
 - Delegate with an open question and closed safety envelope. Do not pre-solve and ask a coworker to confirm; receive independent evidence before challenging or reconciling it.
 - Model tier does not grant claim authority. Bounded/fast workers produce observations and artifacts, not final high-impact conclusions. Complex peers challenge independently; implementers cannot approve their own durable changes. Final acceptance stays with root.
 - Monitoring is root/harness work, never a coworker role. Status events attract attention only; acceptance comes from the root record plus digest-bound artifacts and validation evidence.
 - The pilot is fresh-session only until a full-envelope attestor and controlled resume test exist. Reject resume, continue, and fork for accepted work; a session reference is continuity, not authority.
 - Root owns the live controller lock and canonical-validation lease. Preserve the exact worker output and transport transcript with content digests before synthesis. A write-capable actor requires an isolated worktree and a passed write-isolation smoke.
-- Use the opt-in policy and adapters under `templates/orchestration/`; they are not installed by `setup-foundation-integrity`.
+- Use the opt-in policy and adapters under `templates/orchestration/`; no setup skill
+  installs or activates them automatically.
 
 ### Priority and Claim Preservation
 
@@ -60,7 +92,7 @@ tests/              repo-contract checks for ownership, parity, and template scr
 
 - Before designing or implementing a non-trivial feature, module, mechanism, migration, refactor, or security, reliability, or performance change, perform a proportional foundation audit. Skip only work that is clearly mechanical or local with no plausible architectural effect, and state why the gate is safely skipped.
 - The audit's first objective is to falsify the foundation claims the requested work depends on, not to make the feature fit the current code at any cost. A foundation repair, explicit research blocker, or evidence-backed no-go is a valid outcome; feature completion is not the only successful result.
-- Inspect the owning subsystem and the dependencies the change would load-bear on. Identify the requested outcome, ownership model, authoritative source of truth, lifecycle and trust boundaries, dependency direction, invariants, existing extension path, and intended versus observed behavior. Use industry practice as comparative evidence, not as an automatic override of project constraints.
+- Inspect the owning subsystem and the dependencies the change would load-bear on. Identify the requested outcome, ownership model, authoritative source of truth, lifecycle and trust boundaries, dependency direction, invariants, existing extension path, and intended versus observed behavior. Challenge the system archetype as well as the local implementation: expected category versus observed category, primary evidence for the simplest established alternative, the project constraint that justifies deviation, and the compensating complexity that would disappear. Use industry practice as comparative evidence, not as an automatic override of project constraints; if the comparison is load-bearing and trustworthy evidence is missing, return `RESEARCH_ONLY` rather than inventing a standard.
 - Treat code, tests, documentation, ADRs, issues, and current runtime behavior as evidence, not automatic normative truth. Characterization tests establish what the system does, not what it should do. For load-bearing claims, trace generated summaries, release notes, and rollups to stable primary evidence such as the exact source diff, commit, decision record, or runtime observation.
 - Produce a concise foundation receipt containing: requested outcome; foundation claims by dependency; decisive evidence and counterevidence; intended and observed behavior; confidence and unknowns; mismatch signals; blast radius; change amplification and coupling; public-contract or durable-data lock-in; reversibility; cognitive cost and recurring debt interest; and the architectural properties acceptance checks must preserve. Classify the foundation as exactly one of `FOUNDATION_OK`, `FOUNDATION_SUSPECT`, or `FOUNDATION_BLOCKED`, and record exactly one outcome: `PROCEED`, `RESEARCH_ONLY`, or `NO_GO`. Only `PROCEED` permits feature implementation.
 - Treat multiple compensating patches at the same seam, wrapper-around-wrapper designs, duplicated domain types, state or control flow, synchronized writes, cross-layer leakage, bypassed ownership, feature-specific exceptions, unrelated-module spread, tests that preserve workarounds, behavior about to be frozen into a public API, schema, or durable data, and inability to state one canonical invariant as mismatch signals. They are investigation triggers, not proof by themselves; numeric thresholds are project-specific heuristics. Account for cognitive debt as durable growth in concepts, paths, exceptions, and coordination that maintainers must understand.
@@ -72,7 +104,7 @@ tests/              repo-contract checks for ownership, parity, and template scr
   - **Feature-first:** proceed directly only when evidence shows the foundation is sound and the change does not create a second authority, bypass ownership, or add another compensating exception.
 - Stop before feature implementation when the proposed path would violate an invariant or trust boundary, create a second source of truth, require repeated exceptions, or materially entrench a known mismatch. If active harm exists, apply only the smallest necessary containment before the structural decision.
 - Preserve explicit user-required outcomes, mechanisms, and sequencing. If the audit recommends changing one, surface the conflict and request direction rather than silently substituting a different design.
-- Define architecture fitness checks for the actual property at risk, such as ownership, dependency direction, single source of truth, lifecycle, trust boundary, rollback, or removal path. Green feature tests are necessary but insufficient when they do not exercise those properties.
+- Define architecture fitness checks for the actual property at risk, such as ownership, dependency direction, single source of truth, lifecycle, trust boundary, rollback, or removal path. Select the proof surface by the claim—repro, contract test, validator, benchmark, runtime observation, visual check, or owner-boundary evidence—and prefer proof that survives harmless internal refactors. Green feature tests are necessary but insufficient when they do not exercise those properties or when the cheapest fake-pass implementation can keep the wrong owner or archetype intact.
 - Review according to architectural leverage rather than reading every generated line uniformly. Give full scrutiny to domain invariants and sources of truth; module interfaces and dependency direction; adapters and translation; schemas, migrations, and persistent state; security, transaction, and concurrency boundaries; behavior-defining tests; and rollback, migration, and deletion paths. Automation or sampling is acceptable for mechanical boilerplate.
 - Do not declare implementation ready for merge or handoff unless the handoff makes the source of truth, canonical invariant, trusted foundation claims, material failure modes, and every compatibility layer's lifecycle explicit enough for an accountable maintainer to verify and explain. For a high-impact or externally durable `FOUNDATION_SUSPECT` or `FOUNDATION_BLOCKED` decision, apply the strongest-alternative challenge in Task-Graph Reconciliation to challenge the claims and selected route.
 - Feed the classification, selected route, evidence, blockers, debt, reversibility, and fitness checks into Task-Graph Reconciliation; do not create a second planning hierarchy. This gate is self-contained operating policy: skills may augment it but must never be required for it to run.

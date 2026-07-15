@@ -19,7 +19,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "FI_BLOCK=1 templates/hooks/scripts/foundation-surface-guard.sh"
+            "command": "templates/hooks/scripts/foundation-surface-guard.sh"
           },
           {
             "type": "command",

@@ -1,5 +1,7 @@
 #!/bin/sh
-# Resolve the canonical repo instruction target for setup-foundation-integrity.
+# Resolve the canonical repo instruction target for maintainers migrating an
+# already-configured project. The distributed pack does not invoke this helper
+# through a setup skill.
 # Output: AGENTS.md, CLAUDE.md, AMBIGUOUS, or NONE.
 # Exit:   0 for a resolved file; 2 for ambiguous; 3 for neither file.
 #

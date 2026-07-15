@@ -1,7 +1,7 @@
 {
   "name": "foundation-integrity",
-  "version": "0.1.0",
-  "description": "A foundation gate for agent-driven engineering. Adds the check workflow packs leave out: before building a non-trivial feature, prove the foundation it depends on is sound — instead of bending logic to fit a weak one. Composes with Matt Pocock's skills; requires none of them.",
+  "version": "0.3.0",
+  "description": "A dual-runtime foundation gate and transparent coworker policy, distributed with a pinned Matt Pocock workflow companion and preconfigured repo conventions. The Foundation Integrity core remains standalone.",
   "author": {
     "name": "long7400",
     "url": "https://github.com/long7400"
@@ -21,6 +21,26 @@
     "./skills/foundation-audit",
     "./skills/adversarial-foundation-review",
     "./skills/foundation-health",
-    "./skills/setup-foundation-integrity"
+    "./skills/_third_party/mattpocock/engineering/ask-matt",
+    "./skills/_third_party/mattpocock/engineering/diagnosing-bugs",
+    "./skills/_third_party/mattpocock/engineering/grill-with-docs",
+    "./skills/_third_party/mattpocock/engineering/triage",
+    "./skills/_third_party/mattpocock/engineering/improve-codebase-architecture",
+    "./skills/_third_party/mattpocock/engineering/tdd",
+    "./skills/_third_party/mattpocock/engineering/to-spec",
+    "./skills/_third_party/mattpocock/engineering/to-tickets",
+    "./skills/_third_party/mattpocock/engineering/wayfinder",
+    "./skills/_third_party/mattpocock/engineering/implement",
+    "./skills/_third_party/mattpocock/engineering/prototype",
+    "./skills/_third_party/mattpocock/engineering/research",
+    "./skills/_third_party/mattpocock/engineering/domain-modeling",
+    "./skills/_third_party/mattpocock/engineering/codebase-design",
+    "./skills/_third_party/mattpocock/engineering/code-review",
+    "./skills/_third_party/mattpocock/engineering/resolving-merge-conflicts",
+    "./skills/_third_party/mattpocock/productivity/grill-me",
+    "./skills/_third_party/mattpocock/productivity/grilling",
+    "./skills/_third_party/mattpocock/productivity/handoff",
+    "./skills/_third_party/mattpocock/productivity/teach",
+    "./skills/_third_party/mattpocock/productivity/writing-great-skills"
   ]
 }

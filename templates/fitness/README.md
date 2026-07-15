@@ -29,6 +29,11 @@ are cheap to catch and free the reasoning gate to focus on the ones that aren't.
 Read top-down. Every repo gets tier 1 and tier 2 for free; tier 3 is opt-in when a
 real code stack exists.
 
+Before choosing a concrete test or check, use
+[`proof-surface-selection.md`](./proof-surface-selection.md). It maps the claim under
+review to the evidence surface most capable of falsifying it; "write a unit test" is
+not a universal answer.
+
 ### Tier 1 — Intent (tech-neutral)
 
 *What* to enforce, independent of any tool or language. This is the only tier that
@@ -62,8 +67,8 @@ reads the history instead. These signals are **cumulative**, so they live in
 
 Names a concrete tool per ecosystem to enforce tier-1 intents structurally, per change,
 in CI. This tier is stack-specific **by definition**, so it lives here in `templates/`
-— never in a `SKILL.md`. `setup-foundation-integrity` detects the stack and offers to
-wire the matching one:
+— never in a `SKILL.md`. The maintainer wires the matching adapter explicitly; no
+setup skill silently detects or changes the stack:
 
 | Stack | Tool | Enforces |
 | --- | --- | --- |

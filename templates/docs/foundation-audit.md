@@ -22,6 +22,15 @@ Investigation triggers — not proof by themselves. If the work you're about to 
 
 Optional shared names such as **Balloon** and **Brake** are defined in `foundation-pattern-language.md`. They are mnemonics, not evidence or keyword rules. Use a name only when it identifies the foundation claim, the disconfirming probe, and the fitness check that should change as a result.
 
+## Archetype challenge
+
+Local correctness is not enough when the foundation is the wrong category of system.
+For load-bearing work, compare the expected system category with the observed one,
+cite primary evidence for the simplest established alternative, name the project
+constraint that justifies any deviation, and record which compensating complexity
+would disappear under the alternative. If the comparison is material but reliable
+domain evidence is missing, return `RESEARCH_ONLY`; do not invent an industry norm.
+
 ## Evidence rules
 
 - Code, tests, docs, ADRs, and runtime behaviour are **evidence, not automatic truth**. A characterization test says what the system *does*, not what it *should* do.
@@ -37,6 +46,11 @@ Optional shared names such as **Balloon** and **Brake** are defined in `foundati
 ## Fitness checks — grade on artifacts, not confidence
 
 Where a code stack exists, structural health is machine-measured (dependency direction, no cycles, layering, complexity, change-coupling) so violations trip without good faith. A claim rated `FOUNDATION_OK` should cite the artifact that enforces it — a passing check, a cited invariant, an exact diff — not "it looks right." An unverified load-bearing claim is `SUSPECT` by default. Green fitness checks are necessary, not sufficient.
+
+Choose the proof surface by the claim: repro, contract test, validator, benchmark,
+runtime observation, visual check, or owner-boundary evidence. Prefer evidence that
+survives harmless internal refactors; do not let implementation-detail tests make a
+wrong owner or archetype look correct.
 
 ## Hooks enforce it whether the agent wants it or not
 

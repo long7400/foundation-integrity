@@ -63,33 +63,187 @@ expect_target AMBIGUOUS "$tmp/duplicate-shim"
 expect_target NONE "$tmp/none"
 expect_target AGENTS.md "$root"
 
+sync_guard="$tmp/sync-guard"
+mkdir -p "$sync_guard/scripts" "$sync_guard/.claude/skills" "$sync_guard/.agents/skills"
+cp "$root/scripts/sync-runtime-skills.sh" "$sync_guard/scripts/"
+: > "$sync_guard/.claude/skills/last-known-good"
+: > "$sync_guard/.agents/skills/last-known-good"
+if sh "$sync_guard/scripts/sync-runtime-skills.sh" >/dev/null 2>&1
+then
+  fail "runtime projection sync should reject a missing canonical source"
+fi
+[ -f "$sync_guard/.claude/skills/last-known-good" ] \
+  || fail "failed sync erased the Claude last-known-good projection"
+[ -f "$sync_guard/.agents/skills/last-known-good" ] \
+  || fail "failed sync erased the Codex last-known-good projection"
+
 python3 - "$root" <<'PY'
 import json
 import pathlib
+import subprocess
 import sys
 
 root = pathlib.Path(sys.argv[1])
-skills = sorted(p.name for p in (root / "skills").iterdir() if p.is_dir())
+canonical_root = root / "skills"
+skill_dirs = sorted(p.parent.relative_to(root).as_posix() for p in canonical_root.rglob("SKILL.md"))
 manifest = json.loads((root / ".claude-plugin/plugin.json").read_text())
-registered = sorted(pathlib.PurePosixPath(p).name for p in manifest["skills"])
-if skills != registered:
-    raise SystemExit(f"manifest skill mismatch: dirs={skills} registered={registered}")
+registered = sorted(pathlib.PurePosixPath(p).as_posix().removeprefix("./") for p in manifest["skills"])
+if skill_dirs != registered:
+    raise SystemExit(f"manifest skill mismatch: dirs={skill_dirs} registered={registered}")
 marketplace = json.loads((root / ".claude-plugin/marketplace.json").read_text())
 entries = [p for p in marketplace.get("plugins", []) if p.get("name") == manifest.get("name")]
 if len(entries) != 1 or entries[0].get("source") != "./":
     raise SystemExit("marketplace must expose exactly one local entry for the plugin manifest")
-for name in skills:
-    skill = root / "skills" / name / "SKILL.md"
-    interface = root / "skills" / name / "agents/openai.yaml"
+for relative in skill_dirs:
+    skill = root / relative / "SKILL.md"
+    interface = root / relative / "agents/openai.yaml"
     if not skill.is_file() or not interface.is_file():
-        raise SystemExit(f"missing dual-runtime pair for {name}")
+        raise SystemExit(f"missing canonical Codex interface pair for {relative}")
     declared = next(
         (line.split(":", 1)[1].strip() for line in skill.read_text().splitlines() if line.startswith("name:")),
         None,
     )
-    if declared != name:
-        raise SystemExit(f"skill name mismatch for {name}: {declared}")
+    if not declared:
+        raise SystemExit(f"skill missing name for {relative}")
+
+codex_manifest = json.loads((root / ".codex-plugin/plugin.json").read_text())
+if codex_manifest.get("skills") != "./skills/":
+    raise SystemExit("Codex manifest must recursively expose the canonical plugin skills root")
+if codex_manifest.get("name") != manifest.get("name") or codex_manifest.get("version") != manifest.get("version"):
+    raise SystemExit("Claude/Codex plugin identity or version drift")
+
+upstream = json.loads((root / "third_party/mattpocock-skills/upstream-plugin.json").read_text())
+promoted = sorted(
+    "skills/_third_party/mattpocock/" + p.removeprefix("./skills/")
+    for p in upstream["skills"]
+    if not p.endswith("/setup-matt-pocock-skills")
+)
+vendored = sorted(
+    p.parent.relative_to(root).as_posix()
+    for p in (root / "skills/_third_party/mattpocock").rglob("SKILL.md")
+)
+if promoted != vendored:
+    raise SystemExit(f"vendored Matt allowlist mismatch: expected={promoted} actual={vendored}")
+for forbidden in ("deprecated", "in-progress", "misc", "personal", "setup-matt-pocock-skills"):
+    if (root / "skills/_third_party/mattpocock" / forbidden).exists():
+        raise SystemExit(f"excluded Matt bucket/skill leaked into snapshot: {forbidden}")
+if not (root / "third_party/mattpocock-skills/LICENSE").is_file():
+    raise SystemExit("vendored Matt LICENSE is missing")
+if "MIT License" not in (root / "third_party/mattpocock-skills/LICENSE").read_text():
+    raise SystemExit("vendored Matt LICENSE does not contain the upstream notice")
+
+first_party = sorted(p for p in skill_dirs if not p.startswith("skills/_third_party/"))
+expected_first_party = sorted(
+    [
+        "skills/foundation-audit",
+        "skills/adversarial-foundation-review",
+        "skills/foundation-health",
+    ]
+)
+if first_party != expected_first_party:
+    raise SystemExit(f"first-party core skill set drifted: {first_party}")
+if len(skill_dirs) != 24:
+    raise SystemExit(f"expected 24 skills (3 first-party + 21 companion), found {len(skill_dirs)}")
+
+for runtime_root, require_openai in ((root / ".claude/skills", False), (root / ".agents/skills", True)):
+    runtime_skills = sorted(p.parent.relative_to(runtime_root).as_posix() for p in runtime_root.rglob("SKILL.md"))
+    canonical_skills = sorted(p.removeprefix("skills/") for p in skill_dirs)
+    if runtime_skills != canonical_skills:
+        raise SystemExit(f"runtime projection drift at {runtime_root}: {runtime_skills}")
+    canonical_files = {
+        p.relative_to(canonical_root).as_posix(): p
+        for p in canonical_root.rglob("*")
+        if p.is_file()
+    }
+    if not require_openai:
+        canonical_files = {
+            relative: path
+            for relative, path in canonical_files.items()
+            if not relative.endswith("/agents/openai.yaml")
+        }
+    runtime_files = {
+        p.relative_to(runtime_root).as_posix(): p
+        for p in runtime_root.rglob("*")
+        if p.is_file()
+    }
+    if set(runtime_files) != set(canonical_files):
+        missing = sorted(set(canonical_files) - set(runtime_files))
+        extra = sorted(set(runtime_files) - set(canonical_files))
+        raise SystemExit(
+            f"runtime projection file drift at {runtime_root}: missing={missing} extra={extra}"
+        )
+    for relative, canonical in canonical_files.items():
+        if canonical.read_bytes() != runtime_files[relative].read_bytes():
+            raise SystemExit(f"runtime projection content drift: {runtime_files[relative]}")
+    for relative in canonical_skills:
+        projected = runtime_root / relative
+        openai = projected / "agents/openai.yaml"
+        if require_openai and not openai.is_file():
+            raise SystemExit(f"Codex projection missing openai.yaml: {openai}")
+        if not require_openai and openai.exists():
+            raise SystemExit(f"Claude projection leaked Codex metadata: {openai}")
+
+ignore_template = root / "templates/gitignore/foundation-integrity.gitignore"
+template_text = ignore_template.read_text()
+if "# BEGIN foundation-integrity generated state" not in template_text or "# END foundation-integrity generated state" not in template_text:
+    raise SystemExit("generated-state ignore template is missing stable markers")
+active_ignores = {
+    line.strip()
+    for line in template_text.splitlines()
+    if line.strip() and not line.lstrip().startswith("#")
+}
+if not {".foundation/", "docs/research/", "tmp/"}.issubset(active_ignores):
+    raise SystemExit("generated-state ignore template must exclude .foundation, docs/research, and tmp content")
+root_ignores = (root / ".gitignore").read_text()
+for required in (".foundation/", "docs/research/*", "!docs/research/.gitkeep", "tmp/"):
+    if required not in root_ignores:
+        raise SystemExit(f"root .gitignore missing {required}")
+for canonical in (
+    "docs/foundation/receipts/",
+    "docs/adr/",
+    "docs/agents/",
+    "CONTEXT.md",
+    ".scratch/",
+):
+    if canonical in active_ignores:
+        raise SystemExit(f"canonical evidence/config path must remain trackable: {canonical}")
+research_keep = root / "docs/research/.gitkeep"
+if not research_keep.is_file():
+    raise SystemExit("docs/research must contain its source-repo .gitkeep")
+for local_note in (root / "docs/research").rglob("*"):
+    if local_note.is_file() and local_note != research_keep:
+        ignored = subprocess.run(
+            ["git", "check-ignore", "-q", str(local_note)],
+            cwd=root,
+            check=False,
+        )
+        if ignored.returncode != 0:
+            raise SystemExit(f"research working note is not ignored: {local_note}")
+for required_doc in (
+    "docs/agents/foundation.md",
+    "docs/agents/issue-tracker.md",
+    "docs/agents/domain.md",
+    "docs/agents/triage-labels.md",
+    "docs/install/claude.md",
+    "docs/install/codex.md",
+):
+    if not (root / required_doc).is_file():
+        raise SystemExit(f"preconfigured companion document is missing: {required_doc}")
+
+runtime_hook_forbidden = {
+    root / "templates/hooks/claude-settings.json": '"command": "FI_BLOCK=1',
+    root / "templates/hooks/codex-config.toml": "command = \"sh -c 'FI_BLOCK=1",
+}
+for runtime_hook, forbidden in runtime_hook_forbidden.items():
+    if forbidden in runtime_hook.read_text():
+        raise SystemExit(f"runtime hook sample must remain warn-by-default: {runtime_hook}")
+pre_push = (root / "templates/hooks/git/pre-push").read_text()
+if "export FI_BLOCK=1" not in pre_push:
+    raise SystemExit("pre-push must remain the explicit blocking tier")
 PY
+
+(cd "$root" && shasum -a 256 -c third_party/mattpocock-skills/promoted-files.sha256 \
+  >/dev/null) || fail "vendored Matt snapshot hash drift"
 
 sh "$root/templates/orchestration/scripts/check-role-model-matrix.sh" \
   "$root/templates/orchestration/role-model-matrix.tsv" \
@@ -443,7 +597,7 @@ then
 fi
 
 guard_repo="$tmp/guard-repo"
-mkdir -p "$guard_repo/templates/hooks/scripts" "$guard_repo/templates/hooks" "$guard_repo/.foundation/receipts" "$guard_repo/src"
+mkdir -p "$guard_repo/templates/hooks/scripts" "$guard_repo/templates/hooks" "$guard_repo/docs/foundation/receipts" "$guard_repo/src"
 cp "$root/templates/hooks/scripts/foundation-surface-guard.sh" "$guard_repo/templates/hooks/scripts/"
 printf 'src/**\n' > "$guard_repo/templates/hooks/foundation-surface.txt"
 printf 'base\n' > "$guard_repo/src/base.txt"
@@ -457,7 +611,7 @@ guard_revision=$(git -C "$guard_repo" rev-parse HEAD)
 guard_oid=$(git -C "$guard_repo" hash-object "$guard_repo/src/base.txt")
 guard_digest=$(printf 'src/base.txt\t%s\n' "$guard_oid" | shasum -a 256 | awk '{print $1}')
 printf '<!-- foundation-integrity-receipt:v2\nclassification: FOUNDATION_OK\nroute: Feature-first\nreviewer: human:test\nverdict: upholds\noutcome: PROCEED\nrevision: %s\nchange-digest: %s\nevidence-ref: commit:%s\ncanonical-invariant: source remains authoritative.\nsurface-path: src/base.txt\n-->\n' \
-  "$guard_revision" "$guard_digest" "$guard_revision" > "$guard_repo/.foundation/receipts/ok.md"
+  "$guard_revision" "$guard_digest" "$guard_revision" > "$guard_repo/docs/foundation/receipts/ok.md"
 (cd "$guard_repo" && FI_BLOCK=1 sh templates/hooks/scripts/foundation-surface-guard.sh) \
   || fail "valid v2 receipt should clear the surface guard"
 
@@ -468,13 +622,16 @@ printf 'changed-again\n' > "$guard_repo/src/base.txt"
 range_oid=$(git -C "$guard_repo" hash-object "$guard_repo/src/base.txt")
 range_digest=$(printf 'src/base.txt\t%s\n' "$range_oid" | shasum -a 256 | awk '{print $1}')
 printf '<!-- foundation-integrity-receipt:v2\nclassification: FOUNDATION_OK\nroute: Feature-first\nreviewer: human:test\nverdict: upholds\noutcome: PROCEED\nrevision: %s\nchange-digest: %s\nevidence-ref: commit:%s\ncanonical-invariant: source remains authoritative.\nsurface-path: src/base.txt\n-->\n' \
-  "$range_base" "$range_digest" "$range_base" > "$guard_repo/.foundation/receipts/ok.md"
+  "$range_base" "$range_digest" "$range_base" > "$guard_repo/docs/foundation/receipts/ok.md"
 git -C "$guard_repo" add .
 git -C "$guard_repo" commit -qm guarded-change
 range_head=$(git -C "$guard_repo" rev-parse HEAD)
 (cd "$guard_repo" && FI_RANGE="$range_base..$range_head" FI_BLOCK=1 sh templates/hooks/scripts/foundation-surface-guard.sh) \
   || fail "valid range-bound v2 receipt should clear the surface guard"
 
+# Make the blocking probe reach temporary-workspace creation; a clean worktree
+# would legitimately exit before it needs TMPDIR.
+printf 'changed-third\n' > "$guard_repo/src/base.txt"
 bad_guard_tmp="$tmp/unavailable-tmp"
 printf 'not-a-directory\n' > "$bad_guard_tmp"
 if (cd "$guard_repo" && TMPDIR="$bad_guard_tmp" FI_BLOCK=1 sh templates/hooks/scripts/foundation-surface-guard.sh) >/dev/null 2>&1

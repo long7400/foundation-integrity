@@ -25,6 +25,11 @@ The root selects the runtime and role envelope from [`role-model-matrix.tsv`](./
 11. **Park before teardown.** When transport reports `idle` or `done`, collect the artifact, preserve disagreement, reconcile evidence, and mark accepted/rejected/cancelled before archive or close.
 12. **Monitoring remains bounded and root-owned.** Inspect current state before waiting. Treat both `idle` and `done` as possible turn completion, distinguish `blocked`, bound every wait, and fall back to polling when event delivery is unavailable. A root-side monitor/harness may propose policy changes from metrics; it must not become a coworker, rewrite profiles, or change authority automatically.
 13. **Runtime adapters preserve one contract.** Codex uses profile overlays; Claude uses explicit CLI launch envelopes. Both disable native subagent control, preserve project instruction discovery, bind a role prompt, and record the effective model/effort/permission envelope. The run contract binds every actor to a checked runtime/profile row, requires a root-owned controller lock, fresh sessions, and content-digested artifacts; adapter syntax may differ, but authority must not.
+14. **Ignored state is not durable acceptance.** `.foundation/` may hold live current
+    state, worker artifacts, transcripts, and locks. Once the root accepts or rejects
+    the run, promote the decision-lossless receipt and stable evidence pointers into
+    `docs/foundation/receipts/` or an ADR; never cite ignored runtime state as the only
+    canonical decision record.
 
 ## Minimal roles
 

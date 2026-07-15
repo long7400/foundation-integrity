@@ -1,0 +1,9 @@
+# BEGIN foundation-integrity generated state
+.foundation/
+docs/research/
+tmp/
+# END foundation-integrity generated state
+
+# Canonical records belong outside ignored working state: docs/adr/,
+# docs/foundation/receipts/, docs/agents/, CONTEXT.md, and .scratch/ remain
+# trackable by default.

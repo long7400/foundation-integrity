@@ -4,12 +4,12 @@
     "name": "long7400",
     "url": "https://github.com/long7400"
   },
-  "description": "Foundation-integrity skills for agent-driven engineering — a companion to workflow skill packs that adds the missing gate: prove the foundation is sound before building on it.",
+  "description": "Foundation Integrity for Claude and Codex, including a pinned Matt Pocock companion snapshot and preconfigured repo conventions with a standalone first-party foundation gate.",
   "plugins": [
     {
       "name": "foundation-integrity",
       "source": "./",
-      "description": "A foundation gate, an independent adversarial review, and a cumulative health audit — the checks that stop agents from cementing features onto a weak foundation. Composes with Matt Pocock's skills; requires none of them.",
+      "description": "A foundation gate, independent adversarial review, cumulative health audit, transparent coworker policy, and preconfigured pinned Matt Pocock workflow companion in one install.",
       "category": "engineering",
       "keywords": [
         "engineering",
