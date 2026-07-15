@@ -33,10 +33,11 @@ implementation, three wirings. Change a check once, all runtimes get it.
   to run on every edit/commit.
 - [`foundation-surface-guard.sh`](./scripts/foundation-surface-guard.sh) — did this
   change touch a **foundation-surface** path (public API, schema, migration, auth,
-  core domain, shared module) without a **valid v1 receipt in the same change set that
+  core domain, shared module) without a **valid v2 receipt in the same change set that
   names that exact path**? (Receipt format: [`review-receipt.md`](./review-receipt.md);
-  the guard parses the delimited block, checks required fields + enums, matches paths
-  exactly — no substring, spaces-safe.) Warns (or blocks, if you opt in). Two eval
+  the guard parses the delimited block, checks required fields + enums, binds the exact
+  revision and changed-content digest, and matches paths exactly — no substring,
+  spaces-safe.) Warns (or blocks, if you opt in). Two eval
   modes: worktree (pre-commit, mid-session) and range (pre-push, via
   `FI_RANGE=base..head`) so it also sees already-committed changes. This is the
   **observable trigger** for `adversarial-foundation-review` — it fires on a fact (a

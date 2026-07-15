@@ -27,9 +27,13 @@ The full write-up — with sources — is in [`templates/docs/why-foundation-int
 
 Plus a **measurement layer** the skills lean on ([`templates/fitness/`](./templates/fitness/) + [`templates/hooks/`](./templates/hooks/)): tech-neutral fitness *intents*, a git-only tier that runs in any repo, per-stack adapters (dependency-cruiser / ArchUnit / import-linter / go-arch-lint), and hooks — git-level (runtime-neutral) plus Claude and Codex — that run the checks whether or not the agent cooperates.
 
+The pack also includes an **experimental, opt-in coworker pilot** in [`templates/orchestration/`](./templates/orchestration/). It keeps terminal/session transport separate from workflow authority, uses Codex profile overlays and Claude launch envelopes rather than a transport-control skill inside workers, and ships a machine-checked role/model matrix, root-only validation/controller locks, fresh-session policy, digest-bound current-state/worker/transcript artifacts, and a controlled [weak-foundation baseline benchmark](./templates/orchestration/weak-foundation-benchmark.md). The validators check declarations and artifact binding; they do not prove effective runtime state, reasoning quality, or correctness. The pilot is not installed by `setup-foundation-integrity`, does not add a new skill, and does not depend on or install FirstMate.
+
+Shared names such as **Balloon** and **Brake** are documented as optional mnemonics in [`templates/docs/foundation-pattern-language.md`](./templates/docs/foundation-pattern-language.md). The names are never findings by themselves; each must resolve to a foundation claim, primary evidence, a disconfirming probe, and a fitness check or an explicit semantic-only limit.
+
 ## Composes with Matt Pocock's skills — bundles none of them
 
-If [`mattpocock/skills`](https://github.com/mattpocock/skills) is installed, `setup-foundation-integrity` wires `foundation-audit` into the seam between `to-spec` and `implement` / `tdd` / `prototype`, and points the `code-review` foundation lens at the same signals. If it isn't, everything runs standalone. This pack never vendors or forks another pack's files — integration is a single reference line, not a copy.
+If [`mattpocock/skills`](https://github.com/mattpocock/skills) is installed, `setup-foundation-integrity` wires `foundation-audit` before `to-spec` or any architecture is frozen, and points the `code-review` foundation lens at the same signals. If a spec already exists, the audit runs immediately before design/code. If the other pack isn't installed, everything runs standalone. This pack never vendors or forks another pack's files — integration is a single reference line, not a copy.
 
 ## Install
 

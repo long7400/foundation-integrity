@@ -1,6 +1,6 @@
 interface:
   display_name: "Foundation Audit"
   short_description: "Prove the foundation is sound before building on it"
-  default_prompt: "Use $foundation-audit to falsify the foundation claims this work depends on, produce a receipt and classification (OK/SUSPECT/BLOCKED), and choose one implementation route before building."
+  default_prompt: "Use $foundation-audit before design is frozen to falsify the foundation claims this work depends on, produce a receipt with classification (OK/SUSPECT/BLOCKED) and outcome (PROCEED/RESEARCH_ONLY/NO_GO), and choose one implementation route before building."
 policy:
   allow_implicit_invocation: false

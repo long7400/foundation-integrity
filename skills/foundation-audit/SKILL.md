@@ -1,11 +1,11 @@
 ---
 name: foundation-audit
-description: Before designing or building a non-trivial feature, module, mechanism, migration, or refactor, run a proportional audit of the foundation the work will load-bear on. The audit's first objective is to FALSIFY the foundation claims the work depends on — not to make the feature fit the current code at any cost. Produces a foundation receipt, a classification (FOUNDATION_OK / FOUNDATION_SUSPECT / FOUNDATION_BLOCKED), and one justified implementation route. Use before implement/tdd/prototype, before a migration or schema change, or whenever you're about to build on top of something you haven't verified.
+description: Before designing or building a non-trivial feature, module, mechanism, migration, or refactor, run a proportional audit of the foundation the work will load-bear on. The audit's first objective is to FALSIFY the foundation claims the work depends on — not to make the feature fit the current code at any cost. Produces a foundation receipt, a classification (FOUNDATION_OK / FOUNDATION_SUSPECT / FOUNDATION_BLOCKED), an explicit outcome (PROCEED / RESEARCH_ONLY / NO_GO), and one justified implementation route. Use before to-spec/design and before implement/tdd/prototype, before a migration or schema change, or whenever you're about to build on top of something you haven't verified.
 ---
 
 A gate you pass through *before* building, not a review you run *after*. A capable agent, left to its own objective ("feature works + tests green"), will bend logic and stack wrappers to make a feature fit a weak foundation. This skill forces the opposite move: try to prove the foundation is wrong before you commit to it.
 
-If a workflow pack is installed, this runs in the seam between spec and build: `to-spec` → **foundation-audit** → `implement` / `tdd` / `prototype`. It needs none of them to run.
+If a workflow pack is installed, run this before architecture is frozen: **foundation-audit** → `to-spec` / design → `implement` / `tdd` / `prototype`. If a spec already exists, audit it immediately and stop before design or implementation. It needs none of them to run.
 
 ## When to run
 
@@ -48,6 +48,8 @@ Inspect the owning subsystem and the dependencies. For each claim, look for **co
 
 If the work you're about to do would *add another* item to this list, that is the signal.
 
+Optional shared names such as **Balloon** (workaround amplification) and **Brake** (a missing load-bearing safety/lifecycle primitive) are defined in [`templates/docs/foundation-pattern-language.md`](../../templates/docs/foundation-pattern-language.md). They are mnemonics, not findings: never infer them from keywords, and never use a name without a foundation claim, primary evidence, a disconfirming probe, and a fitness check or explicit semantic-only limit.
+
 ### 3. Write the foundation receipt
 
 Concise but decision-lossless. Include:
@@ -62,6 +64,7 @@ Concise but decision-lossless. Include:
 - **Public-contract or durable-data lock-in** — is this about to freeze into an API, schema, or stored data?
 - **Reversibility** and **recurring debt interest** (the ongoing cost of living with it)
 - **Architectural properties the acceptance checks must preserve**
+- **Outcome** — exactly one of `PROCEED`, `RESEARCH_ONLY`, or `NO_GO`. `RESEARCH_ONLY` means the next action is bounded evidence gathering; `NO_GO` means stop. Neither permits feature implementation.
 
 ### 4. Classify — artifact over prose
 
@@ -72,6 +75,8 @@ Exactly one:
 - **`FOUNDATION_BLOCKED`** — building now would violate an invariant or trust boundary, create a second source of truth, require repeated exceptions, or materially entrench a known mismatch. Or a load-bearing fact is unknown and unresolved.
 
 **The default is not OK.** A load-bearing claim rated `OK` must cite the **artifact** that broke the attempt to falsify it — the exact diff, commit, test run, or runtime observation. A claim with no attached primary evidence is `SUSPECT` by default, not OK. This is deliberate: your own confidence is the least trustworthy input here — the same self-preference that makes you rate familiar output highly (arXiv 2410.21819) makes "I'm sure it's fine" worthless as evidence. "It looks right" is prose; a passing contract test or a cited invariant is an artifact. Grade on artifacts.
+
+`FOUNDATION_OK` is not an implementation permit by itself: the outcome must also be `PROCEED`, and any observable foundation-surface trigger still requires the independent review.
 
 ### 5. Choose one route, and justify it
 
@@ -95,4 +100,4 @@ An audit is a *reasoning* check; its honesty is its weak point. Where a real cod
 
 ## Output
 
-Report the receipt, the classification, and the chosen route. If blocked, state the exact blocker — don't propose a workaround as if it were the fix.
+Report the receipt, the classification, the explicit outcome, and the chosen route. If `RESEARCH_ONLY` or `NO_GO`, state the exact blocker and do not propose a workaround as if it were the fix.

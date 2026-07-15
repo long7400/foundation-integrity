@@ -23,14 +23,14 @@
 #     Signature verification needs committed history, so it only engages in range
 #     mode (pre-push / CI); in worktree mode it degrades to advisory + a deferral note.
 #
-# Receipt format: the v1 block in templates/hooks/review-receipt.md. Receipt files are
+# Receipt format: the v2 block in templates/hooks/review-receipt.md. Receipt files are
 # matched under **/adr/*.md and .foundation/receipts/*.md.
 #
 # Modes of evaluation:
 #   worktree (default) — staged + unstaged + untracked vs HEAD. Pre-commit / mid-session.
 #   range   (FI_RANGE=base..head) — the exact commit range. Pre-push / CI.
 #
-# Exit codes:  0 pass · 1 warn (default) · 2 block (FI_BLOCK=1)
+# Exit codes:  0 pass · 1 warn (default) · 2 block (FI_BLOCK=1 or attested)
 #
 # Env: FI_BLOCK, FI_RANGE, FI_REVIEW_MODE, FI_TRUSTED_REVIEWERS, FI_SURFACE_FILE
 
@@ -41,18 +41,42 @@ surface_file=${FI_SURFACE_FILE:-"$here/../foundation-surface.txt"}
 mode=${FI_REVIEW_MODE:-advisory}
 
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 0
-[ -f "$surface_file" ] || exit 0
+
+fail_closed() {
+  message=$1
+  printf '%s\n' "foundation-surface-guard: $message" >&2
+  if [ "${FI_BLOCK:-0}" = "1" ] || [ "$mode" = attested ]; then
+    exit 2
+  fi
+  exit 1
+}
+
+[ -f "$surface_file" ] || fail_closed "surface policy is missing: $surface_file"
 
 range=${FI_RANGE:-}
 head_ref=HEAD
+base_ref=HEAD
 if [ -n "$range" ]; then
   head_ref=${range##*..}
+  base_ref=${range%%..*}
   [ -n "$head_ref" ] || head_ref=HEAD
+  [ -n "$base_ref" ] || base_ref=HEAD
 fi
 
-tmpd=$(mktemp -d) || exit 0
+tmpd=$(mktemp -d 2>/dev/null) || fail_closed "cannot create a temporary workspace; refusing to clear the surface check"
 trap 'rm -rf "$tmpd"' EXIT
 R_PATHS="$tmpd/paths"
+R_EVIDENCE="$tmpd/evidence"
+
+sha256_stream() {
+  if command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 | awk '{print $1}'
+  elif command -v sha256sum >/dev/null 2>&1; then
+    sha256sum | awk '{print $1}'
+  else
+    fail_closed "no SHA-256 implementation is available for receipt binding"
+  fi
+}
 
 # --- Read a receipt's content in the active mode. ---
 materialize() { # $1 = repo-relative path -> stdout
@@ -69,10 +93,12 @@ materialize() { # $1 = repo-relative path -> stdout
 parse_receipt() { # $1 = file
   R_REVIEWER=""
   : > "$R_PATHS"
+  : > "$R_EVIDENCE"
   cr=$(printf '\r')
   in_block=0; closed=0; bad=0; n_open=0
-  c_class=""; c_route=""; c_rev=""; c_verd=""; c_inv=""
-  n_class=0; n_route=0; n_rev=0; n_verd=0; n_inv=0; n_path=0
+  c_class=""; c_route=""; c_rev=""; c_verd=""; c_inv=""; c_outcome=""
+  c_revision=""; c_digest=""; n_class=0; n_route=0; n_rev=0; n_verd=0; n_inv=0
+  n_outcome=0; n_revision=0; n_digest=0; n_evidence=0; n_path=0
 
   while IFS= read -r line || [ -n "$line" ]; do
     line=${line%"$cr"}                     # tolerate CRLF receipts
@@ -82,7 +108,7 @@ parse_receipt() { # $1 = file
       # string. Count openers so multiple blocks can be rejected as ambiguous.
       lead=${line%%[![:space:]]*}; t=${line#"$lead"}
       case "$t" in
-        "<!--"*foundation-integrity-receipt:v1*) in_block=1; n_open=$((n_open+1)) ;;
+        "<!--"*foundation-integrity-receipt:v2*) in_block=1; n_open=$((n_open+1)) ;;
       esac
       continue
     fi
@@ -99,6 +125,20 @@ parse_receipt() { # $1 = file
       reviewer)             c_rev=$v;   n_rev=$((n_rev+1)) ;;
       verdict)              c_verd=$v;  n_verd=$((n_verd+1)) ;;
       canonical-invariant)  c_inv=$v;   n_inv=$((n_inv+1)) ;;
+      outcome)              c_outcome=$v; n_outcome=$((n_outcome+1)) ;;
+      revision)             c_revision=$v; n_revision=$((n_revision+1)) ;;
+      change-digest)        c_digest=$v; n_digest=$((n_digest+1)) ;;
+      evidence-ref)
+        case "$v" in
+          commit:*|run:*|url:*) n_evidence=$((n_evidence+1)) ;;
+          path:*)
+            evidence_path=${v#path:}
+            case "$evidence_path" in
+              ""|/*|*..*|*//*|./*) bad=1 ;;
+              *) printf '%s\n' "$evidence_path" >> "$R_EVIDENCE"; n_evidence=$((n_evidence+1)) ;;
+            esac ;;
+          *) bad=1 ;;
+        esac ;;
       surface-path)
         case "$v" in
           ""|/*|*..*) bad=1 ;;
@@ -111,14 +151,31 @@ parse_receipt() { # $1 = file
   [ "$closed" = 1 ] || return 1
   [ "$bad" = 0 ] || return 1
   [ "$n_class" = 1 ] && [ "$n_route" = 1 ] && [ "$n_rev" = 1 ] \
-    && [ "$n_verd" = 1 ] && [ "$n_inv" = 1 ] || return 1
-  [ "$n_path" -ge 1 ] || return 1
-  [ -n "$c_inv" ] && [ -n "$c_rev" ] || return 1
+    && [ "$n_verd" = 1 ] && [ "$n_inv" = 1 ] && [ "$n_outcome" = 1 ] \
+    && [ "$n_revision" = 1 ] && [ "$n_digest" = 1 ] || return 1
+  [ "$n_path" -ge 1 ] && [ "$n_evidence" -ge 1 ] || return 1
+  [ -n "$c_inv" ] && [ -n "$c_rev" ] && [ -n "$c_outcome" ] || return 1
   case "$c_class" in FOUNDATION_OK|FOUNDATION_SUSPECT|FOUNDATION_BLOCKED) ;; *) return 1 ;; esac
   case "$c_route" in Feature-first|Bounded-compatibility|Foundation-first) ;; *) return 1 ;; esac
   case "$c_verd" in upholds|amends|overturns) ;; *) return 1 ;; esac
-  # Clearing rules: only upholds/amends clear; BLOCKED never; SUSPECT+Feature-first never.
+  case "$c_outcome" in PROCEED|RESEARCH_ONLY|NO_GO) ;; *) return 1 ;; esac
+  [ "$c_revision" = "$expected_revision" ] || return 1
+  case "$c_digest" in
+    ''|*[!0-9A-Fa-f]*) return 1 ;;
+  esac
+  [ "${#c_digest}" = 64 ] || return 1
+  [ "$c_digest" = "$expected_change_digest" ] || return 1
+  while IFS= read -r evidence_path; do
+    [ -n "$evidence_path" ] || continue
+    if [ -n "$range" ]; then
+      git cat-file -e "$head_ref:$evidence_path" 2>/dev/null || return 1
+    else
+      [ -f "$evidence_path" ] || return 1
+    fi
+  done < "$R_EVIDENCE"
+  # Clearing rules: only upholds/amends + PROCEED clear; BLOCKED/SUSPECT/RESEARCH_ONLY/NO_GO never.
   case "$c_verd" in upholds|amends) ;; *) return 1 ;; esac
+  [ "$c_outcome" = PROCEED ] || return 1
   [ "$c_class" = FOUNDATION_BLOCKED ] && return 1
   { [ "$c_class" = FOUNDATION_SUSPECT ] && [ "$c_route" = Feature-first ]; } && return 1
   R_REVIEWER=$c_rev
@@ -148,6 +205,33 @@ else
 fi
 [ -s "$tmpd/hits" ] || exit 0
 grep -iE '((^|/)adr/.*\.md$)|(\.foundation/receipts/.*\.md$)' "$tmpd/all" > "$tmpd/receipts" 2>/dev/null || true
+
+# Bind each receipt to the exact revision and changed-content manifest. Receipt/ADR
+# files are excluded from the manifest to avoid a self-referential digest; their
+# evidence refs still have to be explicit and machine-parseable.
+ # In range mode the receipt itself is part of the pushed tip, so binding it to the
+ # tip hash would be self-referential. Bind revision to the exact left boundary and
+ # bind all changed content to the digest below; worktree mode binds HEAD directly.
+expected_revision=$(git rev-parse "$base_ref" 2>/dev/null || true)
+[ -n "$expected_revision" ] || fail_closed "cannot resolve the checked revision"
+{
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    case "$f" in
+      */adr/*.md|.foundation/receipts/*.md) continue ;;
+    esac
+    if [ -n "$range" ]; then
+      oid=$(git rev-parse "$head_ref:$f" 2>/dev/null || printf '%s' DELETED)
+    elif [ -e "$f" ]; then
+      oid=$(git hash-object -- "$f" 2>/dev/null || printf '%s' UNREADABLE)
+    else
+      oid=DELETED
+    fi
+    printf '%s\t%s\n' "$f" "$oid"
+  done < "$tmpd/all"
+} | sort | tee "$tmpd/change-manifest" >/dev/null
+expected_change_digest=$(cat "$tmpd/change-manifest" | sha256_stream)
+[ -n "$expected_change_digest" ] || fail_closed "cannot compute the changed-content digest"
 
 # --- Attested mode: resolve the trusted signer of the pushed tip (range mode only). ---
 attested_active=0
@@ -203,7 +287,7 @@ Each surface file above changed but no valid ADR/receipt in this change set name
   1. Run foundation-audit on the claim the change load-bears on.
   2. If a foundation surface is touched, run adversarial-foundation-review in a
      SEPARATE session (ideally a different model). Record its verdict.
-  3. Write a v1 receipt (.foundation/receipts/) or ADR naming the exact paths above.
+  3. Write a v2 receipt (.foundation/receipts/) or ADR naming the exact paths above.
      See templates/hooks/review-receipt.md.
 In attested mode the receipt's reviewer must match a signed, trusted attestation.
 This makes skipping the review a visible, auditable act; advisory mode is not proof

@@ -1,6 +1,6 @@
 ---
 name: adversarial-foundation-review
-description: An independent, adversarial second opinion on a foundation-audit decision. Run this in a SEPARATE session from the one doing the work — its only job is to REFUTE the audit's foundation claim and chosen route, not to help ship. Use for high-impact FOUNDATION_SUSPECT or FOUNDATION_BLOCKED calls, before a decision gets frozen into a public API, schema, migration, or durable data. Closes the "the agent that wants to ship also grades its own foundation" conflict of interest.
+description: An independent, adversarial second opinion on a foundation-audit decision. Run this in a SEPARATE session from the one doing the work — its only job is to REFUTE the audit's foundation claim and chosen route, not to help ship. Use for any observable foundation-surface, mismatch, or fitness trigger and for high-impact FOUNDATION_SUSPECT or FOUNDATION_BLOCKED calls, before a decision gets frozen into a public API, schema, migration, or durable data. Closes the "the agent that wants to ship also grades its own foundation" conflict of interest.
 ---
 
 The `foundation-audit` gate has one structural weakness: the same session that wants to complete the work also decides whether the foundation is sound. That's a conflict of interest. This skill is the fix — an **independent reviewer with no stake in shipping**, whose success condition is *finding the flaw*, not approving the plan.
@@ -8,6 +8,8 @@ The `foundation-audit` gate has one structural weakness: the same session that w
 ## Run this in a separate session — ideally a different model
 
 This must not run in the session that produced the audit. Open a fresh one — a new tab, a new agent, a teammate. The reviewer should not carry the original session's momentum toward completion. If you're driving multiple sessions (e.g. via a harness), spin up a dedicated one for this and give it only the receipt plus read access to the code.
+
+When a harness supplies an external top-level coworker session rather than a native subagent, keep its transport and orchestration mechanism outside this skill. Do not treat a transport status such as `idle` or `done` as proof that a review completed or was accepted.
 
 Two things sharpen the check against self-preference bias:
 

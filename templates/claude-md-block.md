@@ -4,10 +4,11 @@ The gate that runs before building on a foundation, so a capable agent doesn't b
 
 ### The gate
 
-- Before designing or building a non-trivial feature, module, mechanism, migration, or refactor, run `foundation-audit`. Skip only work that is clearly mechanical or local with no plausible architectural effect — and say in one line why the skip is safe.
+- Before design or implementation is frozen for a non-trivial feature, module, mechanism, migration, or refactor, run `foundation-audit`. Record exactly one outcome: `PROCEED`, `RESEARCH_ONLY`, or `NO_GO`; only `PROCEED` may authorize implementation. Skip only work that is clearly mechanical or local with no plausible architectural effect — and say in one line why the skip is safe.
 - The audit's first objective is to **falsify** the foundation claims the work depends on, not to make the feature fit the current code at any cost. A foundation repair, a research blocker, or an evidence-backed no-go is a valid outcome; feature completion is not the only success.
-- Classify the foundation as exactly one of `FOUNDATION_OK`, `FOUNDATION_SUSPECT`, `FOUNDATION_BLOCKED`, and choose one justified route: Foundation-first, Bounded-compatibility, or Feature-first.
+- Classify the foundation as exactly one of `FOUNDATION_OK`, `FOUNDATION_SUSPECT`, `FOUNDATION_BLOCKED`, record the explicit outcome, and choose one justified route: Foundation-first, Bounded-compatibility, or Feature-first.
 - Stop before implementation when the path would violate an invariant or trust boundary, create a second source of truth, require repeated exceptions, or materially entrench a known mismatch. If active harm exists, apply the smallest containment first, then decide.
+- Shared anti-pattern names are mnemonics, not verdicts. A name is useful only when it points to a foundation claim, primary evidence, a disconfirming probe, and an acceptance/fitness check.
 
 ### Explain-the-invariant tripwire
 
@@ -36,7 +37,7 @@ Included by setup-foundation-integrity only when a workflow pack was detected.
 Remove this section if no such pack is installed. -->
 ### Workflow-pack integration
 
-- Run `foundation-audit` in the seam between `to-spec` and `implement` / `tdd` / `prototype` — after the spec, before code.
+- Run `foundation-audit` before `to-spec` or any architecture is frozen; if a spec already exists, audit immediately before design/code.
 - Give `code-review` a foundation lens: check the change against the mismatch signals in `docs/agents/foundation.md`, not only local standards.
 - On a Foundation-first route, hand the repair to `improve-codebase-architecture` or `codebase-design`.
 - These are reference lines, not a dependency. If the workflow pack is removed, they degrade to plain guidance and the gate still runs.

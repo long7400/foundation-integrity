@@ -4,7 +4,7 @@ How the skills in this repo treat the foundation gate. This is the short operati
 
 ## The gate, in one paragraph
 
-Before building anything non-trivial, run `foundation-audit`. Its first job is to try to **prove the foundation wrong** — not to make the feature fit. Classify `FOUNDATION_OK` / `SUSPECT` / `BLOCKED`, pick one route (Foundation-first / Bounded-compatibility / Feature-first), and for the first two routes record an ADR. Stop before implementation if building would break an invariant, create a second source of truth, or entrench a known mismatch.
+Before architecture or implementation is frozen, run `foundation-audit`. Its first job is to try to **prove the foundation wrong** — not to make the feature fit. Classify `FOUNDATION_OK` / `SUSPECT` / `BLOCKED`, record exactly one outcome (`PROCEED`, `RESEARCH_ONLY`, or `NO_GO`), pick one route (Foundation-first / Bounded-compatibility / Feature-first), and for the first two routes record an ADR. Stop before design/implementation if building would break an invariant, create a second source of truth, or entrench a known mismatch.
 
 ## Mismatch signals
 
@@ -19,6 +19,8 @@ Investigation triggers — not proof by themselves. If the work you're about to 
 - tests that exist to preserve a workaround
 - behaviour about to be frozen into a public API, schema, or durable data
 - you can't state one canonical invariant for the thing
+
+Optional shared names such as **Balloon** and **Brake** are defined in `foundation-pattern-language.md`. They are mnemonics, not evidence or keyword rules. Use a name only when it identifies the foundation claim, the disconfirming probe, and the fitness check that should change as a result.
 
 ## Evidence rules
 
@@ -38,7 +40,7 @@ Where a code stack exists, structural health is machine-measured (dependency dir
 
 ## Hooks enforce it whether the agent wants it or not
 
-Git hooks (runtime-neutral) and runtime hooks (Claude/Codex) run the checks at commit/push and mid-session. The surface-guard fires on the *fact* that a surface file changed with no valid v1 receipt/ADR naming its exact path — removing the self-grade escape and making a skipped review a visible, auditable act. Default *advisory* mode records that a decision was made (it does not prove an independent review ran); opt-in *attested* mode additionally requires a signed, trusted-reviewer attestation. See Residual limits in `why-foundation-integrity.md`.
+Git hooks (runtime-neutral) and runtime hooks (Claude/Codex) run the checks at commit/push and mid-session. The surface-guard fires on the *fact* that a surface file changed with no valid v2 receipt/ADR naming its exact path — and binds that receipt to the checked revision, changed-content digest, and evidence refs. Default *advisory* mode records a decision (it does not prove an independent review ran); opt-in *attested* mode additionally requires a signed, trusted-reviewer attestation. See Residual limits in `why-foundation-integrity.md`.
 
 ## Explain-the-invariant tripwire
 
