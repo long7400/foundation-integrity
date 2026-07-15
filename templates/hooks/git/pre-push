@@ -1,0 +1,83 @@
+#!/usr/bin/env sh
+# foundation-integrity :: git pre-push
+#
+# The stricter gate. Code is about to leave the machine, so blocking is proportionate.
+# Unlike pre-commit, this must see ALREADY-COMMITTED changes — a clean worktree shows
+# nothing. Git pipes the ref updates on stdin, one line per ref:
+#     <local ref> <local sha> <remote ref> <remote sha>
+# We evaluate the exact commit range per ref, so a multi-ref push checks EVERY ref.
+#
+# Install: copy to .git/hooks/pre-push and `chmod +x`, or use core.hooksPath.
+# To keep it warn-only, unset FI_BLOCK below.
+set -eu
+DIR="templates/hooks/scripts"   # <- change to where fitness scripts live in your repo
+export FI_BLOCK=1               # block the push on a violation; comment out to warn-only
+# For attested mode the policy (foundation-surface.txt), this hook, the guard script,
+# AND the allowlist must live OUTSIDE the agent's write scope — otherwise the author
+# can neuter the check by editing the policy. Point CI at an external, trusted copy;
+# do NOT keep the allowlist in the pushed tree. See review-receipt.md / why-doc §8.
+# export FI_REVIEW_MODE=attested
+# export FI_TRUSTED_REVIEWERS=/etc/foundation-integrity/trusted-reviewers.tsv
+
+# Git invokes: pre-push <remote-name> <remote-url>. We exclude only the TARGET remote's
+# tracking refs when sizing a new branch — excluding all remotes would hide commits that
+# already exist on a DIFFERENT remote but are new to this one.
+remote_name=${1:-}
+
+# A zero OID (branch create / delete) is all zeros — works for SHA-1 and SHA-256.
+is_zero_oid() { case "$1" in *[!0]*) return 1 ;; "") return 1 ;; *) return 0 ;; esac; }
+empty_tree=$(git hash-object -t tree /dev/null)
+
+rc=0
+guard="$DIR/foundation-surface-guard.sh"
+fit="$DIR/fitness-check.sh"
+
+while IFS=' ' read -r local_ref local_sha remote_ref remote_sha; do
+  [ -n "${local_sha:-}" ] || continue
+  is_zero_oid "$local_sha" && continue      # deleting a remote ref — nothing to push
+
+  if is_zero_oid "${remote_sha:-}"; then
+    # New branch on THIS remote: pushed commits are those reachable from local_sha but
+    # not already on the TARGET remote's tracking refs. Excluding all remotes would
+    # wrongly skip commits that exist on a different remote but are new to this one.
+    if [ -n "$remote_name" ]; then
+      new_commits=$(git rev-list "$local_sha" --not --remotes="$remote_name" 2>/dev/null || true)
+    else
+      new_commits=$(git rev-list "$local_sha" --not --remotes 2>/dev/null || true)
+    fi
+    [ -n "$new_commits" ] || continue
+    oldest=$(printf '%s\n' "$new_commits" | tail -n1)
+    if git rev-parse -q --verify "${oldest}^" >/dev/null 2>&1; then
+      range="${oldest}^..${local_sha}"
+    else
+      range="${empty_tree}..${local_sha}"   # oldest is a root commit
+    fi
+  else
+    # Updating an existing branch. If we don't have the remote object locally (e.g.
+    # a force-push landing on unknown history), fail closed rather than skip.
+    if ! git cat-file -e "${remote_sha}^{commit}" 2>/dev/null; then
+      echo "push blocked: remote object $remote_sha not present locally for $local_ref;" >&2
+      echo "  cannot compute the pushed range safely (fetch first, or review in CI)." >&2
+      rc=1
+      continue
+    fi
+    range="${remote_sha}..${local_sha}"
+  fi
+
+  # Surface guard + tier-2 delta, per ref, over the exact pushed range.
+  if [ -x "$guard" ]; then
+    FI_RANGE="$range" "$guard" || { echo "push blocked: surface change in $range without a valid naming receipt (see above)." >&2; rc=1; }
+  fi
+  if [ -x "$fit" ]; then
+    FI_RANGE="$range" FI_DELTA_ONLY=1 "$fit" || rc=1
+  fi
+done
+
+# Tier-3 adapters read the working tree, not ranges — run once, in full mode, after
+# the loop (ArchUnit's test slice runs here).
+if [ -x "$fit" ]; then
+  FI_FULL=1 FI_ADAPTERS_ONLY=1 "$fit" || { echo "push blocked: structural fitness violation (see above)." >&2; rc=1; }
+fi
+
+[ "$rc" -eq 0 ] || echo "Fix the issue, or push with a recorded decision. --no-verify bypasses only after you own that choice." >&2
+exit "$rc"

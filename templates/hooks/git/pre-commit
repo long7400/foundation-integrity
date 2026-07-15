@@ -1,0 +1,23 @@
+#!/usr/bin/env sh
+# foundation-integrity :: git pre-commit
+#
+# Runtime-neutral, canonical enforcement — fires for EVERY actor (Claude, Codex, and a
+# human on the CLI), so a foundation check here can't be sidestepped by switching
+# runtime. Kept fast: warn-only, so it never becomes the reason someone reaches for
+# `--no-verify`.
+#
+# Install: copy to .git/hooks/pre-commit and `chmod +x`, or point core.hooksPath at
+# the dir holding this file. setup-foundation-integrity can wire this for you.
+#
+# Adjust the path below if you vendored the scripts elsewhere.
+set -eu
+DIR="templates/hooks/scripts"   # <- change to where fitness scripts live in your repo
+
+# Surface-guard: warn if a foundation-surface file changed with no valid receipt. Warn only
+# at commit time (blocking belongs on pre-push).
+[ -x "$DIR/foundation-surface-guard.sh" ] && "$DIR/foundation-surface-guard.sh" || true
+
+# Fast structural check on the wired adapter (if any).
+[ -x "$DIR/fitness-check.sh" ] && "$DIR/fitness-check.sh" || true
+
+exit 0

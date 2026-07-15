@@ -1,0 +1,32 @@
+{
+  "//": "foundation-integrity :: Claude Code hook wiring. Merge these entries into the repo's .claude/settings.json (project scope, NOT ~/.claude). Same scripts as the git hooks and the Codex config — one implementation, three wirings.",
+  "//paths": "Adjust the command paths if you vendored templates/hooks/scripts elsewhere.",
+  "//exit-codes": "A hook exit code of 2 blocks the tool/turn and feeds stderr back to the agent; other non-zero shows a warning. The scripts return 1=warn, 2=block(when FI_BLOCK=1). Default posture is warn.",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "templates/hooks/scripts/foundation-surface-guard.sh"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "FI_BLOCK=1 templates/hooks/scripts/foundation-surface-guard.sh"
+          },
+          {
+            "type": "command",
+            "command": "templates/hooks/scripts/fitness-check.sh"
+          }
+        ]
+      }
+    ]
+  }
+}

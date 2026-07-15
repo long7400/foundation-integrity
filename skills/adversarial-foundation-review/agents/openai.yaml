@@ -1,0 +1,6 @@
+interface:
+  display_name: "Adversarial Foundation Review"
+  short_description: "Independent session that tries to refute a foundation decision"
+  default_prompt: "Use $adversarial-foundation-review in a separate session to refute a foundation-audit receipt — attack its claims, evidence, and chosen route, then return upholds/overturns/amends."
+policy:
+  allow_implicit_invocation: false

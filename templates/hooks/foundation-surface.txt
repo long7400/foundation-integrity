@@ -1,0 +1,34 @@
+# Foundation-surface paths — one glob per line.
+#
+# A change touching any of these is "foundation-surface": expensive to reverse,
+# durable, or load-bearing for other code. The surface-guard hook checks that such a
+# change is accompanied by an ADR. Edits OUTSIDE these paths pass silently — this is
+# what keeps the hooks proportional and un-annoying.
+#
+# EDIT THIS for your repo. The defaults below are common surfaces; delete what
+# doesn't apply and add your own. Lines starting with # are comments; blank lines
+# are ignored. Globs are matched with `git`-style pathspecs.
+
+# Database schema / migrations — freezes into durable data.
+**/migrations/**
+**/migrate/**
+*.sql
+**/schema.*
+
+# Public API / contracts — freezes into an external contract.
+**/api/**
+**/openapi*.y*ml
+**/*.proto
+**/graphql/**
+
+# Auth / security boundaries.
+**/auth/**
+**/security/**
+
+# Core domain — the source-of-truth model.
+**/domain/**
+**/core/**
+
+# Cross-cutting shared modules — a change here has wide blast radius.
+**/shared/**
+**/common/**

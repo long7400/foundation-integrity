@@ -1,0 +1,6 @@
+interface:
+  display_name: "Foundation Health"
+  short_description: "Periodic cumulative audit of foundation drift"
+  default_prompt: "Use $foundation-health, separate from feature work, to read accumulated signals (churn, open ADRs, past receipts, recurring seams) and report the drift the per-feature gate can't see."
+policy:
+  allow_implicit_invocation: false

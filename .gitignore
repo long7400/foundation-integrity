@@ -1,0 +1,8 @@
+# Editor / IDE
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# Node (only if a stack ever lands here)
+node_modules/

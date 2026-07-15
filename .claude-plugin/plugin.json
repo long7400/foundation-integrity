@@ -1,0 +1,26 @@
+{
+  "name": "foundation-integrity",
+  "version": "0.1.0",
+  "description": "A foundation gate for agent-driven engineering. Adds the check workflow packs leave out: before building a non-trivial feature, prove the foundation it depends on is sound — instead of bending logic to fit a weak one. Composes with Matt Pocock's skills; requires none of them.",
+  "author": {
+    "name": "long7400",
+    "url": "https://github.com/long7400"
+  },
+  "homepage": "https://github.com/long7400/foundation-integrity",
+  "repository": "https://github.com/long7400/foundation-integrity",
+  "license": "MIT",
+  "keywords": [
+    "engineering",
+    "architecture",
+    "technical-debt",
+    "foundation",
+    "code-review",
+    "skills"
+  ],
+  "skills": [
+    "./skills/foundation-audit",
+    "./skills/adversarial-foundation-review",
+    "./skills/foundation-health",
+    "./skills/setup-foundation-integrity"
+  ]
+}
