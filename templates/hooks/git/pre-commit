@@ -11,7 +11,9 @@
 #
 # Adjust the path below if you vendored the scripts elsewhere.
 set -eu
-DIR="templates/hooks/scripts"   # <- change to where fitness scripts live in your repo
+root=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+DIR="$root/.foundation-integrity/hooks"
+cd "$root"
 
 # Surface-guard: warn if a foundation-surface file changed with no valid receipt. Warn only
 # at commit time (blocking belongs on pre-push).

@@ -23,13 +23,18 @@ There are two modes, and they promise different things:
   still does not prove the reviewer *thought hard* — only that an isolated key was used.
   It is authoritative only when a protected CI/branch-protection rule re-runs the
   verification; a local hook remains bypassable. See "Residual limits" in
-  `templates/docs/why-foundation-integrity.md`.
+  `docs/foundation/why-foundation-integrity.md`.
 
 ## The v2 receipt block
 
 Put a receipt in `docs/foundation/receipts/<short-name>.md`, or embed the same block in a
 full ADR under `docs/adr/`. The machine-read part is the delimited block below; write
 whatever prose you like around it.
+
+Numbered ADRs are ignored by the personal-project preset. They can clear the local
+worktree advisory check, but they cannot clear a pushed-range/pre-push check because
+they are not in the pushed commit. Use an explicitly tracked receipt when the
+blocking pre-push tier must verify the decision.
 
 ```markdown
 # Review receipt — <short title>

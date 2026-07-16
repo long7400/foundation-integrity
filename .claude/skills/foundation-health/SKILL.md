@@ -22,8 +22,9 @@ Use whatever signals the repo already has. All of these are available from `git`
 
 5. **Structural drift (if tooling exists).** If the repo has dependency-graph / duplication / complexity tools wired in, read their trend, not just their current pass/fail. Rising duplication or a new dependency cycle is the machine-measured version of the same story. If no such tooling exists, note that as a gap — don't install it here.
 
-   The concrete git-only signals to trend live in the distribution/repository-root
-   file `templates/fitness/git-only.md`: cross-boundary change-coupling, churn
+   The concrete git-only signals to trend live in the adopted file
+   `docs/foundation/fitness/git-only.md` when fitness guidance is installed:
+   cross-boundary change-coupling, churn
    hotspots, blast radius, workaround-marker density. Compute them from `git log`
    alone — no stack tooling needed.
 

@@ -4,16 +4,17 @@ This repository treats feature correctness as necessary but not sufficient. Befo
 non-trivial feature, module, migration, refactor, or security/reliability/performance
 change, falsify the load-bearing foundation claims first.
 
-The canonical operating rules live in `AGENTS.md` or `CLAUDE.md`; that file is the
-active owner. Full-opt merged the marked consumer block there and deliberately did
-not retain a duplicate source template. The receipt guide is
-`templates/docs/foundation-audit.md`; the compact rationale and audit pointer are
-`templates/docs/why-foundation-integrity.md` and
-`templates/docs/distribution-provenance.md`.
+The canonical operating rules live in the consumer's existing `AGENTS.md` or
+`CLAUDE.md`; installation never creates, merges, replaces, or claims either file.
+The three reusable project references are
+`docs/foundation/foundation-audit.md`,
+`docs/foundation/foundation-pattern-language.md`, and
+`docs/foundation/why-foundation-integrity.md`.
 
 Project-specific receipts belong under `docs/foundation/receipts/`. Working research
-belongs under ignored `docs/research/` and must be promoted into an ADR, receipt,
-`CONTEXT.md`, or another canonical owner before it becomes a durable decision.
+belongs under ignored `docs/research/`. ADRs under `docs/adr/` are personal working
+history by default; promote only the decision-lossless subset that the project truly
+needs to share.
 
 The required vocabulary is:
 
@@ -25,3 +26,7 @@ The required vocabulary is:
 
 Optional names such as Balloon and Brake are mnemonics only. They never replace the
 evidence-backed foundation claim.
+
+External coworker mode is opt-in. When the user explicitly requests it and
+`HERDR_ENV=1`, the root may read `.orchestration/foundation/README.md` and only the
+selected runtime adapter. Ordinary sessions must not load orchestration policy.

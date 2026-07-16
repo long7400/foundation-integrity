@@ -18,59 +18,6 @@ sha256_file() {
   fi
 }
 
-expect_target() {
-  expected=$1
-  dir=$2
-  set +e
-  out=$(sh "$root/templates/setup/resolve-instruction-target.sh" "$dir" 2>&1)
-  rc=$?
-  set -e
-  [ "$out" = "$expected" ] || fail "target for $dir: expected $expected, got $out"
-  case "$expected" in
-    AMBIGUOUS) [ "$rc" -eq 2 ] || fail "AMBIGUOUS should exit 2" ;;
-    NONE) [ "$rc" -eq 3 ] || fail "NONE should exit 3" ;;
-    *) [ "$rc" -eq 0 ] || fail "$expected should exit 0" ;;
-  esac
-}
-
-mkdir -p \
-  "$tmp/only-agents" \
-  "$tmp/only-claude" \
-  "$tmp/shim" \
-  "$tmp/substantive-shim" \
-  "$tmp/agents-owner" \
-  "$tmp/claude-owner" \
-  "$tmp/ambiguous" \
-  "$tmp/duplicate-shim" \
-  "$tmp/none"
-
-printf '# Rules\n' > "$tmp/only-agents/AGENTS.md"
-printf '# Rules\n' > "$tmp/only-claude/CLAUDE.md"
-printf '## Personal Operating Rules\n' > "$tmp/shim/AGENTS.md"
-printf '# CLAUDE.md\n\n@AGENTS.md\n' > "$tmp/shim/CLAUDE.md"
-printf '## Personal Operating Rules\n' > "$tmp/substantive-shim/AGENTS.md"
-printf '# CLAUDE.md\n\n@AGENTS.md\n\nAlways use the local release checklist.\n' \
-  > "$tmp/substantive-shim/CLAUDE.md"
-printf '## Foundation Integrity\n' > "$tmp/agents-owner/AGENTS.md"
-printf '# Claude notes\n' > "$tmp/agents-owner/CLAUDE.md"
-printf '# Agent notes\n' > "$tmp/claude-owner/AGENTS.md"
-printf '## Foundation Integrity\n' > "$tmp/claude-owner/CLAUDE.md"
-printf '# Agent notes\n' > "$tmp/ambiguous/AGENTS.md"
-printf '# Claude notes\n' > "$tmp/ambiguous/CLAUDE.md"
-printf '## Foundation Integrity\n' > "$tmp/duplicate-shim/AGENTS.md"
-printf '## Foundation Integrity\n\n@AGENTS.md\n' > "$tmp/duplicate-shim/CLAUDE.md"
-
-expect_target AGENTS.md "$tmp/only-agents"
-expect_target CLAUDE.md "$tmp/only-claude"
-expect_target AGENTS.md "$tmp/shim"
-expect_target AMBIGUOUS "$tmp/substantive-shim"
-expect_target AMBIGUOUS "$tmp/agents-owner"
-expect_target AMBIGUOUS "$tmp/claude-owner"
-expect_target AMBIGUOUS "$tmp/ambiguous"
-expect_target AMBIGUOUS "$tmp/duplicate-shim"
-expect_target NONE "$tmp/none"
-expect_target AGENTS.md "$root"
-
 full_opt_target="$tmp/full-opt-target"
 mkdir -p "$full_opt_target"
 git -C "$full_opt_target" init -q
@@ -94,8 +41,10 @@ find "$root/.agents/skills" -name SKILL.md -type f -print | while IFS= read -r s
 done
 [ ! -e "$full_opt_target/.claude/skills" ] \
   || fail "Codex-only full-opt leaked the Claude projection"
-[ "$(grep -Fxc '<!-- BEGIN foundation-integrity -->' "$full_opt_target/AGENTS.md")" = 1 ] \
-  || fail "full-opt instruction block missing or duplicated"
+[ ! -e "$full_opt_target/AGENTS.md" ] \
+  || fail "full-opt created AGENTS.md instead of preserving instruction ownership"
+[ ! -e "$full_opt_target/CLAUDE.md" ] \
+  || fail "full-opt created CLAUDE.md instead of preserving instruction ownership"
 for ignored in .foundation/ docs/research/ tmp/; do
   grep -Fqx "$ignored" "$full_opt_target/.gitignore" \
     || fail "full-opt ignore block missing $ignored"
@@ -105,9 +54,10 @@ for adopted in \
   docs/agents/domain.md \
   docs/agents/issue-tracker.md \
   docs/agents/triage-labels.md \
-  templates/fitness/proof-surface-selection.md \
-  templates/hooks/scripts/fitness-check.sh \
-  templates/orchestration/coworker-protocol.md
+  docs/adr/0000-template.md \
+  docs/foundation/fitness/proof-surface-selection.md \
+  .foundation-integrity/hooks/fitness-check.sh \
+  .orchestration/foundation/coworker-protocol.md
 do
   [ -f "$full_opt_target/$adopted" ] || fail "full-opt missing $adopted"
 done
@@ -126,15 +76,22 @@ grep -Fq 'FI_DELTA_ONLY=1' "$full_opt_target/.git/hooks/pre-commit" \
 [ ! -e "$full_opt_target/.git/hooks/pre-push" ] \
   || fail "full-opt activated blocking pre-push without explicit opt-in"
 [ ! -e "$full_opt_target/templates/claude-md-block.md" ] \
-  || fail "full-opt duplicated the merged instruction source"
+  || fail "full-opt retained the removed instruction source"
+[ ! -e "$full_opt_target/templates" ] \
+  || fail "full-opt retained a top-level templates directory"
 [ ! -e "$full_opt_target/templates/gitignore" ] \
   || fail "full-opt duplicated the merged ignore source"
 [ ! -e "$full_opt_target/docs/research" ] \
   || fail "full-opt copied research working state"
 [ -f "$full_opt_target/.foundation-integrity/adoption.tsv" ] \
   || fail "full-opt did not persist its adoption ownership lock"
-grep -Fq '# foundation-integrity-adoption:v2' "$full_opt_target/.foundation-integrity/adoption.tsv" \
+grep -Fq '# foundation-integrity-adoption:v3' "$full_opt_target/.foundation-integrity/adoption.tsv" \
   || fail "full-opt adoption lock has the wrong schema"
+if awk -F '\t' '$1 == "setting" && ($2 == "instruction-target" || $2 == "instruction-block-sha256") { found = 1 } END { exit !found }' \
+  "$full_opt_target/.foundation-integrity/adoption.tsv"
+then
+  fail "full-opt adoption lock still claims instruction ownership"
+fi
 awk -F '\t' '$1 == "setting" && $2 == "payload-sha256" && $3 != "" { found = 1 } END { exit !found }' \
   "$full_opt_target/.foundation-integrity/adoption.tsv" \
   || fail "full-opt adoption lock lacks the payload digest"
@@ -148,11 +105,9 @@ awk -F '\t' '
 ' "$full_opt_target/.foundation-integrity/adoption.tsv" \
   || fail "full-opt adoption lock does not bind one mode per managed file/hook"
 for executable in \
-  templates/hooks/scripts/fitness-check.sh \
-  templates/hooks/scripts/foundation-surface-guard.sh \
-  templates/orchestration/scripts/check-role-model-matrix.sh \
-  templates/setup/check-credential-permissions.sh \
-  templates/setup/resolve-instruction-target.sh
+  .foundation-integrity/hooks/fitness-check.sh \
+  .foundation-integrity/hooks/foundation-surface-guard.sh \
+  .orchestration/foundation/scripts/check-role-model-matrix.sh
 do
   [ -x "$full_opt_target/$executable" ] \
     || fail "full-opt did not preserve executable mode: $executable"
@@ -160,8 +115,8 @@ done
 
 sh "$root/templates/setup/full-opt.sh" --runtime codex "$full_opt_target" \
   >/dev/null || fail "full-opt is not idempotent"
-[ "$(grep -Fxc '<!-- BEGIN foundation-integrity -->' "$full_opt_target/AGENTS.md")" = 1 ] \
-  || fail "full-opt rerun duplicated instructions"
+[ ! -e "$full_opt_target/AGENTS.md" ] && [ ! -e "$full_opt_target/CLAUDE.md" ] \
+  || fail "full-opt rerun mutated instruction files"
 sh "$root/templates/setup/full-opt.sh" --runtime codex --with-pre-push "$full_opt_target" \
   >/dev/null || fail "explicit full-opt pre-push activation failed"
 [ -x "$full_opt_target/.git/hooks/pre-push" ] \
@@ -172,16 +127,14 @@ awk -F '\t' '$1 == "hook" { found = 1 } END { exit !found }' \
   "$full_opt_target/.foundation-integrity/adoption.tsv" \
   || fail "full-opt adoption lock does not own installed hooks"
 
-managed_update="$full_opt_target/templates/docs/why-foundation-integrity.md"
+managed_update="$full_opt_target/docs/foundation/why-foundation-integrity.md"
 printf 'previous managed payload\n' > "$managed_update"
 previous_hash=$(sha256_file "$managed_update")
-awk -F '\t' -v OFS='\t' -v path='templates/docs/why-foundation-integrity.md' -v hash="$previous_hash" \
+awk -F '\t' -v OFS='\t' -v path='docs/foundation/why-foundation-integrity.md' -v hash="$previous_hash" \
   '$1 == "file" && $3 == path { $2 = hash } { print }' \
   "$full_opt_target/.foundation-integrity/adoption.tsv" > "$tmp/adoption-update.tsv"
 old_runtime=$(awk -F '\t' '$1 == "setting" && $2 == "runtime" { print $3 }' "$tmp/adoption-update.tsv")
 old_components=$(awk -F '\t' '$1 == "setting" && $2 == "components" { print $3 }' "$tmp/adoption-update.tsv")
-old_instruction_target=$(awk -F '\t' '$1 == "setting" && $2 == "instruction-target" { print $3 }' "$tmp/adoption-update.tsv")
-old_instruction_hash=$(awk -F '\t' '$1 == "setting" && $2 == "instruction-block-sha256" { print $3 }' "$tmp/adoption-update.tsv")
 old_ignore_hash=$(awk -F '\t' '$1 == "setting" && $2 == "ignore-block-sha256" { print $3 }' "$tmp/adoption-update.tsv")
 old_distribution_version=$(awk -F '\t' '$1 == "setting" && $2 == "distribution-version" { print $3 }' "$tmp/adoption-update.tsv")
 old_source_repository=$(awk -F '\t' '$1 == "setting" && $2 == "source-repository" { print $3 }' "$tmp/adoption-update.tsv")
@@ -192,7 +145,6 @@ old_source_tree_state=$(awk -F '\t' '$1 == "setting" && $2 == "source-tree-state
   printf 'runtime\t%s\n' "$old_runtime"
   printf 'components\t%s\n' "$old_components"
   awk -F '\t' '$1 == "file" || $1 == "hook" || $1 == "external" || $1 == "mode" { print }' "$tmp/adoption-update.tsv"
-  printf 'instruction-block\t%s\t%s\n' "$old_instruction_hash" "$old_instruction_target"
   printf 'ignore-block\t%s\t.gitignore\n' "$old_ignore_hash"
 } | LC_ALL=C sort > "$tmp/adoption-content.tsv"
 adoption_content=$(sha256_file "$tmp/adoption-content.tsv")
@@ -214,7 +166,7 @@ awk -F '\t' -v OFS='\t' -v hash="$adoption_payload" \
   "$tmp/adoption-content-update.tsv" > "$full_opt_target/.foundation-integrity/adoption.tsv"
 sh "$root/templates/setup/full-opt.sh" --runtime codex --with-pre-push "$full_opt_target" \
   >/dev/null || fail "full-opt could not update an unmodified file owned by the previous lock"
-cmp -s "$root/templates/docs/why-foundation-integrity.md" "$managed_update" \
+cmp -s "$root/docs/foundation/why-foundation-integrity.md" "$managed_update" \
   || fail "full-opt managed update did not install the new payload"
 printf '#!/bin/sh\nprintf custom-hook\\n\n' > "$full_opt_target/.git/hooks/pre-commit"
 chmod +x "$full_opt_target/.git/hooks/pre-commit"
@@ -223,19 +175,263 @@ sh "$root/templates/setup/full-opt.sh" --runtime codex "$full_opt_target" \
 grep -Fq 'custom-hook' "$full_opt_target/.git/hooks/pre-commit" \
   || fail "full-opt replaced a custom pre-commit hook"
 
-full_opt_owner_change="$tmp/full-opt-owner-change"
-mkdir -p "$full_opt_owner_change"
-sh "$root/templates/setup/full-opt.sh" --runtime claude --core --no-pre-commit "$full_opt_owner_change" \
-  >/dev/null || fail "Claude owner-change fixture adoption failed"
-if sh "$root/templates/setup/full-opt.sh" --runtime codex --instruction-target AGENTS.md \
-  --core --no-pre-commit "$full_opt_owner_change" >/dev/null 2>&1
+full_opt_instruction_preserve="$tmp/full-opt-instruction-preserve"
+mkdir -p "$full_opt_instruction_preserve"
+printf '# Existing AGENTS rules\n' > "$full_opt_instruction_preserve/AGENTS.md"
+printf '# Existing CLAUDE rules\n' > "$full_opt_instruction_preserve/CLAUDE.md"
+cp "$full_opt_instruction_preserve/AGENTS.md" "$tmp/agents-before.md"
+cp "$full_opt_instruction_preserve/CLAUDE.md" "$tmp/claude-before.md"
+sh "$root/templates/setup/full-opt.sh" --runtime both --core --no-pre-commit \
+  "$full_opt_instruction_preserve" >/dev/null \
+  || fail "instruction-preservation fixture adoption failed"
+cmp -s "$tmp/agents-before.md" "$full_opt_instruction_preserve/AGENTS.md" \
+  || fail "full-opt changed the consumer AGENTS.md"
+cmp -s "$tmp/claude-before.md" "$full_opt_instruction_preserve/CLAUDE.md" \
+  || fail "full-opt changed the consumer CLAUDE.md"
+
+v2_source="$tmp/v2-source"
+v2_target="$tmp/v2-target"
+mkdir -p "$v2_source" "$v2_target"
+# An empty directory may be consumer-owned even though v2 later populated it with
+# installer files. The v3 migration must not infer directory ownership from files.
+mkdir -p "$v2_target/templates/docs"
+(cd "$root" && git archive HEAD) | tar -x -C "$v2_source"
+sh "$v2_source/templates/setup/full-opt.sh" --runtime both --core --no-pre-commit \
+  "$v2_target" >/dev/null || fail "legacy v2 fixture adoption failed"
+[ -f "$v2_target/CLAUDE.md" ] || fail "legacy v2 fixture did not create its managed Claude shim"
+cp "$v2_target/AGENTS.md" "$tmp/v2-agents-before.md"
+cp "$v2_target/CLAUDE.md" "$tmp/v2-claude-before.md"
+grep -Fq '# foundation-integrity-adoption:v2' "$v2_target/.foundation-integrity/adoption.tsv" \
+  || fail "legacy fixture did not create a v2 adoption lock"
+sh "$root/templates/setup/full-opt.sh" --runtime both --core --no-pre-commit \
+  "$v2_target" >/dev/null || fail "v2-to-v3 adoption failed"
+cmp -s "$tmp/v2-agents-before.md" "$v2_target/AGENTS.md" \
+  || fail "v2-to-v3 migration changed AGENTS.md"
+cmp -s "$tmp/v2-claude-before.md" "$v2_target/CLAUDE.md" \
+  || fail "v2-to-v3 migration changed CLAUDE.md"
+if find "$v2_target/templates" -type f -print | grep -q .
 then
-  fail "full-opt accepted an instruction-owner change that would leave two managed blocks"
+  fail "v2-to-v3 migration left legacy template files"
 fi
-[ ! -e "$full_opt_owner_change/AGENTS.md" ] \
-  || fail "instruction-owner rejection created a second instruction file"
-[ "$(grep -Fxc '<!-- BEGIN foundation-integrity -->' "$full_opt_owner_change/CLAUDE.md")" = 1 ] \
-  || fail "instruction-owner rejection damaged the original managed block"
+[ -d "$v2_target/templates/docs" ] \
+  || fail "v2-to-v3 migration removed an empty consumer-owned legacy directory"
+[ ! -e "$v2_target/.foundation/migrations/foundation-integrity-v2-v3.tsv" ] \
+  || fail "successful v2-to-v3 migration left its pending journal"
+grep -Fq '# foundation-integrity-adoption:v3' "$v2_target/.foundation-integrity/adoption.tsv" \
+  || fail "v2-to-v3 migration did not write a v3 adoption lock"
+
+for fault in after-first-add after-managed-actions before-adoption-commit; do
+  fault_target="$tmp/v2-fault-$fault"
+  mkdir -p "$fault_target"
+  git -C "$fault_target" init -q
+  sh "$v2_source/templates/setup/full-opt.sh" --runtime both --core --no-pre-commit \
+    "$fault_target" >/dev/null || fail "fault fixture adoption failed: $fault"
+  cp "$fault_target/AGENTS.md" "$tmp/$fault-agents-before.md"
+  cp "$fault_target/CLAUDE.md" "$tmp/$fault-claude-before.md"
+  if FI_TEST_INTERRUPT_AFTER="$fault" sh "$root/templates/setup/full-opt.sh" \
+    --runtime both --full-opt --with-pre-push "$fault_target" >/dev/null 2>&1
+  then
+    fail "fault injection did not interrupt v2 migration: $fault"
+  fi
+  [ -f "$fault_target/.foundation/migrations/foundation-integrity-v2-v3.tsv" ] \
+    || fail "fault injection did not leave a pending journal: $fault"
+  pending_journal_hash=$(awk -F '\t' \
+    '$1 == "setting" && $2 == "pending-v3-journal-sha256" { print $3; exit }' \
+    "$fault_target/.foundation-integrity/adoption.tsv")
+  [ -n "$pending_journal_hash" ] \
+    && [ "$pending_journal_hash" = "$(sha256_file "$fault_target/.foundation/migrations/foundation-integrity-v2-v3.tsv")" ] \
+    || fail "v2 adoption lock did not bind the pending journal: $fault"
+  pending_plan_hash=$(awk -F '\t' \
+    '$1 == "setting" && $2 == "pending-v3-plan-sha256" { print $3; exit }' \
+    "$fault_target/.foundation-integrity/adoption.tsv")
+  awk -F '\t' -v OFS='\t' \
+    '$1 == "pending-add" { $1 = "add"; print } \
+     $1 == "pending-remove" { $1 = "remove"; print }' \
+    "$fault_target/.foundation-integrity/adoption.tsv" \
+    | LC_ALL=C sort > "$tmp/$fault-pending-plan.tsv"
+  [ -n "$pending_plan_hash" ] \
+    && [ "$pending_plan_hash" = "$(sha256_file "$tmp/$fault-pending-plan.tsv")" ] \
+    || fail "v2 adoption lock did not bind its pending operation plan: $fault"
+  sh "$root/templates/setup/full-opt.sh" --runtime both --full-opt --with-pre-push \
+    "$fault_target" >/dev/null || fail "journaled v2 migration did not recover: $fault"
+  cmp -s "$tmp/$fault-agents-before.md" "$fault_target/AGENTS.md" \
+    || fail "journaled migration changed AGENTS.md: $fault"
+  cmp -s "$tmp/$fault-claude-before.md" "$fault_target/CLAUDE.md" \
+    || fail "journaled migration changed CLAUDE.md: $fault"
+  [ ! -e "$fault_target/.foundation/migrations/foundation-integrity-v2-v3.tsv" ] \
+    || fail "journaled migration left a pending journal: $fault"
+  grep -Fq '# foundation-integrity-adoption:v3' \
+    "$fault_target/.foundation-integrity/adoption.tsv" \
+    || fail "journaled migration did not commit v3 adoption: $fault"
+  [ -x "$fault_target/.git/hooks/pre-commit" ] \
+    || fail "journaled migration did not recover pre-commit: $fault"
+  [ -x "$fault_target/.git/hooks/pre-push" ] \
+    || fail "journaled migration did not recover pre-push: $fault"
+  awk -F '\t' '$1 == "hook" && $3 == ".git/hooks/pre-commit" { precommit = 1 }
+    $1 == "hook" && $3 == ".git/hooks/pre-push" { prepush = 1 }
+    END { exit !(precommit && prepush) }' \
+    "$fault_target/.foundation-integrity/adoption.tsv" \
+    || fail "journaled migration ledger omitted recovered hooks: $fault"
+done
+
+v2_journal_missing="$tmp/v2-journal-missing"
+mkdir -p "$v2_journal_missing"
+git -C "$v2_journal_missing" init -q
+sh "$v2_source/templates/setup/full-opt.sh" --runtime both --core --no-pre-commit \
+  "$v2_journal_missing" >/dev/null || fail "missing-journal v2 fixture adoption failed"
+if FI_TEST_INTERRUPT_AFTER=after-first-add sh "$root/templates/setup/full-opt.sh" \
+  --runtime both --full-opt --with-pre-push "$v2_journal_missing" >/dev/null 2>&1
+then
+  fail "missing-journal fixture did not interrupt"
+fi
+missing_journal="$v2_journal_missing/.foundation/migrations/foundation-integrity-v2-v3.tsv"
+rm -f "$missing_journal"
+if sh "$root/templates/setup/full-opt.sh" --runtime both --full-opt --with-pre-push \
+  "$v2_journal_missing" >/dev/null 2>&1
+then
+  fail "migration recovered without the journal bound by the v2 adoption lock"
+fi
+grep -Fq '# foundation-integrity-adoption:v2' \
+  "$v2_journal_missing/.foundation-integrity/adoption.tsv" \
+  || fail "missing journal changed the authoritative v2 adoption lock"
+awk -F '\t' \
+  '$1 == "setting" && $2 == "pending-v3-journal-sha256" { journal = 1 } \
+   $1 == "setting" && $2 == "pending-v3-plan-sha256" { plan = 1 } \
+   $1 == "pending-add" { operation = 1 } \
+   END { exit !(journal && plan && operation) }' \
+  "$v2_journal_missing/.foundation-integrity/adoption.tsv" \
+  || fail "missing journal erased the authoritative pending operation plan"
+
+v2_journal_tamper="$tmp/v2-journal-tamper"
+mkdir -p "$v2_journal_tamper"
+git -C "$v2_journal_tamper" init -q
+sh "$v2_source/templates/setup/full-opt.sh" --runtime both --core --no-pre-commit \
+  "$v2_journal_tamper" >/dev/null || fail "journal-tamper v2 fixture adoption failed"
+if FI_TEST_INTERRUPT_AFTER=after-first-add sh "$root/templates/setup/full-opt.sh" \
+  --runtime both --full-opt --with-pre-push "$v2_journal_tamper" >/dev/null 2>&1
+then
+  fail "journal-tamper fixture did not interrupt"
+fi
+journal="$v2_journal_tamper/.foundation/migrations/foundation-integrity-v2-v3.tsv"
+cp "$journal" "$tmp/journal-valid.tsv"
+awk 'NR == 2 { print "setting\tunexpected-setting\ttrue" } { print }' \
+  "$tmp/journal-valid.tsv" > "$journal"
+if sh "$root/templates/setup/full-opt.sh" --runtime both --full-opt --with-pre-push \
+  "$v2_journal_tamper" >/dev/null 2>&1
+then
+  fail "migration accepted a journal with an unknown setting"
+fi
+cp "$tmp/journal-valid.tsv" "$journal"
+printf 'add\t%s\t644\tdocs/foundation/planted.md\n' \
+  '0000000000000000000000000000000000000000000000000000000000000000' >> "$journal"
+awk -F '\t' '$1 == "add" || $1 == "remove" { print }' "$journal" \
+  | LC_ALL=C sort > "$tmp/journal-tampered-plan.tsv"
+tampered_plan_hash=$(sha256_file "$tmp/journal-tampered-plan.tsv")
+awk -F '\t' -v OFS='\t' -v hash="$tampered_plan_hash" \
+  '$1 == "setting" && $2 == "plan-sha256" { $3 = hash } { print }' \
+  "$journal" > "$tmp/journal-tampered.tsv"
+mv "$tmp/journal-tampered.tsv" "$journal"
+if sh "$root/templates/setup/full-opt.sh" --runtime both --full-opt --with-pre-push \
+  "$v2_journal_tamper" >/dev/null 2>&1
+then
+  fail "migration accepted journal operations that differ from the migration plan"
+fi
+grep -Fq '# foundation-integrity-adoption:v2' \
+  "$v2_journal_tamper/.foundation-integrity/adoption.tsv" \
+  || fail "journal tamper changed the authoritative v2 adoption lock"
+
+v2_journal_donor="$tmp/v2-journal-donor"
+v2_journal_planted="$tmp/v2-journal-planted"
+mkdir -p "$v2_journal_donor" "$v2_journal_planted"
+git -C "$v2_journal_donor" init -q
+git -C "$v2_journal_planted" init -q
+sh "$v2_source/templates/setup/full-opt.sh" --runtime both --core --no-pre-commit \
+  "$v2_journal_donor" >/dev/null || fail "journal donor v2 fixture adoption failed"
+sh "$v2_source/templates/setup/full-opt.sh" --runtime both --core --no-pre-commit \
+  "$v2_journal_planted" >/dev/null || fail "planted-journal v2 fixture adoption failed"
+if FI_TEST_INTERRUPT_AFTER=after-first-add sh "$root/templates/setup/full-opt.sh" \
+  --runtime both --full-opt --with-pre-push "$v2_journal_donor" >/dev/null 2>&1
+then
+  fail "journal donor fixture did not interrupt"
+fi
+donor_journal="$v2_journal_donor/.foundation/migrations/foundation-integrity-v2-v3.tsv"
+planted_journal="$v2_journal_planted/.foundation/migrations/foundation-integrity-v2-v3.tsv"
+mkdir -p "$(dirname "$planted_journal")"
+cp "$donor_journal" "$planted_journal"
+journal_old_hash=$(awk -F '\t' \
+  '$1 == "setting" && $2 == "old-adoption-sha256" { print $3; exit }' \
+  "$planted_journal")
+[ "$journal_old_hash" = "$(sha256_file "$v2_journal_planted/.foundation-integrity/adoption.tsv")" ] \
+  || fail "planted journal fixture does not bind the same pre-migration v2 payload"
+planted_path=
+while IFS="$(printf '\t')" read -r operation operation_hash operation_mode operation_path; do
+  [ "$operation" = add ] || continue
+  if [ -f "$v2_journal_donor/$operation_path" ] \
+    && [ ! -e "$v2_journal_planted/$operation_path" ]; then
+    planted_path=$operation_path
+    break
+  fi
+done < "$planted_journal"
+[ -n "$planted_path" ] || fail "could not find an applied journal addition to plant"
+mkdir -p "$(dirname "$v2_journal_planted/$planted_path")"
+cp -p "$v2_journal_donor/$planted_path" "$v2_journal_planted/$planted_path"
+cp "$v2_journal_planted/$planted_path" "$tmp/planted-identical-before"
+if sh "$root/templates/setup/full-opt.sh" --runtime both --full-opt --with-pre-push \
+  "$v2_journal_planted" >/dev/null 2>&1
+then
+  fail "migration accepted an unbound planted journal for an identical staged path"
+fi
+cmp -s "$tmp/planted-identical-before" "$v2_journal_planted/$planted_path" \
+  || fail "rejected planted journal changed the ambiguous consumer path"
+grep -Fq '# foundation-integrity-adoption:v2' \
+  "$v2_journal_planted/.foundation-integrity/adoption.tsv" \
+  || fail "planted journal changed the authoritative v2 adoption lock"
+if awk -F '\t' \
+  '$1 == "setting" && $2 == "pending-v3-journal-sha256" { found = 1 } END { exit !found }' \
+  "$v2_journal_planted/.foundation-integrity/adoption.tsv"
+then
+  fail "planted journal acquired an authoritative v2 binding"
+fi
+
+v2_journal_ignore="$tmp/v2-journal-ignore"
+mkdir -p "$v2_journal_ignore"
+sh "$v2_source/templates/setup/full-opt.sh" --runtime both --core --no-pre-commit \
+  "$v2_journal_ignore" >/dev/null || fail "journal-ignore v2 fixture adoption failed"
+if FI_TEST_INTERRUPT_AFTER=after-managed-actions sh "$root/templates/setup/full-opt.sh" \
+  --runtime both --core --no-pre-commit "$v2_journal_ignore" >/dev/null 2>&1
+then
+  fail "journal-ignore fixture did not interrupt"
+fi
+awk '
+  $0 == "# END foundation-integrity generated state" { print "consumer-changed-ignore/" }
+  { print }
+' "$v2_journal_ignore/.gitignore" > "$tmp/journal-ignore-tampered"
+mv "$tmp/journal-ignore-tampered" "$v2_journal_ignore/.gitignore"
+if sh "$root/templates/setup/full-opt.sh" --runtime both --core --no-pre-commit \
+  "$v2_journal_ignore" >/dev/null 2>&1
+then
+  fail "migration journal relaxed the changed-ignore-block check"
+fi
+
+v2_interrupted="$tmp/v2-interrupted"
+mkdir -p "$v2_interrupted"
+sh "$v2_source/templates/setup/full-opt.sh" --runtime both --core --no-pre-commit \
+  "$v2_interrupted" >/dev/null || fail "interrupted v2 fixture adoption failed"
+mkdir -p "$v2_interrupted/docs/adr"
+cp "$root/docs/adr/0000-template.md" "$v2_interrupted/docs/adr/0000-template.md"
+if sh "$root/templates/setup/full-opt.sh" --runtime both --core --no-pre-commit \
+  "$v2_interrupted" >/dev/null 2>&1
+then
+  fail "v2-to-v3 migration guessed ownership after an interrupted copy"
+fi
+grep -Fq '# foundation-integrity-adoption:v2' \
+  "$v2_interrupted/.foundation-integrity/adoption.tsv" \
+  || fail "ambiguous v2 migration did not preserve the v2 adoption lock"
+if awk -F '\t' '$1 == "external" && $3 == "docs/adr/0000-template.md" { found = 1 } END { exit !found }' \
+  "$v2_interrupted/.foundation-integrity/adoption.tsv"
+then
+  fail "ambiguous v2 migration misclassified a partial v3 file as external"
+fi
 
 full_opt_provenance_tamper="$tmp/full-opt-provenance-tamper"
 mkdir -p "$full_opt_provenance_tamper"
@@ -252,23 +448,6 @@ if sh "$root/templates/setup/full-opt.sh" --runtime codex --no-pre-commit \
 then
   fail "full-opt accepted source provenance that no longer matched the payload digest"
 fi
-
-full_opt_instruction_tamper="$tmp/full-opt-instruction-tamper"
-mkdir -p "$full_opt_instruction_tamper"
-sh "$root/templates/setup/full-opt.sh" --runtime codex --core --no-pre-commit "$full_opt_instruction_tamper" \
-  >/dev/null || fail "instruction-tamper fixture adoption failed"
-awk '
-  $0 == "<!-- END foundation-integrity -->" { print "Tampered managed instruction." }
-  { print }
-' "$full_opt_instruction_tamper/AGENTS.md" > "$tmp/instruction-tamper.md"
-mv "$tmp/instruction-tamper.md" "$full_opt_instruction_tamper/AGENTS.md"
-if sh "$root/templates/setup/full-opt.sh" --runtime codex --no-pre-commit \
-  --core "$full_opt_instruction_tamper" >/dev/null 2>&1
-then
-  fail "full-opt overwrote a consumer edit inside the managed instruction block"
-fi
-grep -Fq 'Tampered managed instruction.' "$full_opt_instruction_tamper/AGENTS.md" \
-  || fail "instruction-block conflict did not preserve the consumer edit"
 
 full_opt_ignore_tamper="$tmp/full-opt-ignore-tamper"
 mkdir -p "$full_opt_ignore_tamper"
@@ -291,6 +470,7 @@ full_opt_both="$tmp/full-opt-both"
 mkdir -p "$full_opt_both"
 git -C "$full_opt_both" init -q
 printf '# Existing project rules\n' > "$full_opt_both/AGENTS.md"
+printf '# Existing Claude rules\n' > "$full_opt_both/CLAUDE.md"
 printf 'dist/\n' > "$full_opt_both/.gitignore"
 sh "$root/templates/setup/full-opt.sh" --runtime both --core --no-pre-commit "$full_opt_both" \
   >/dev/null || fail "both-runtime full-opt adoption failed"
@@ -298,10 +478,10 @@ sh "$root/templates/setup/full-opt.sh" --runtime both --core --no-pre-commit "$f
   || fail "both-runtime full-opt did not install 24 Codex skills"
 [ "$(find "$full_opt_both/.claude/skills" -name SKILL.md -type f | wc -l | tr -d ' ')" = 24 ] \
   || fail "both-runtime full-opt did not install 24 Claude skills"
-grep -Fqx '@AGENTS.md' "$full_opt_both/CLAUDE.md" \
-  || fail "both-runtime full-opt did not create the transparent Claude shim"
 grep -Fqx '# Existing project rules' "$full_opt_both/AGENTS.md" \
   || fail "full-opt did not preserve existing instruction content"
+grep -Fqx '# Existing Claude rules' "$full_opt_both/CLAUDE.md" \
+  || fail "full-opt did not preserve existing Claude instruction content"
 grep -Fqx 'dist/' "$full_opt_both/.gitignore" \
   || fail "full-opt did not preserve existing ignore content"
 sh "$root/templates/setup/full-opt.sh" --runtime codex --core --no-pre-commit "$full_opt_both" \
@@ -318,8 +498,8 @@ find "$root/.claude/skills" -name SKILL.md -type f -print | while IFS= read -r s
   [ ! -e "$full_opt_both/.claude/skills/$relative_root" ] \
     || fail "both-to-Codex transition left an old managed Claude skill directory: $relative_root"
 done
-[ ! -e "$full_opt_both/CLAUDE.md" ] \
-  || fail "both-to-Codex transition left the managed Claude shim"
+grep -Fqx '# Existing Claude rules' "$full_opt_both/CLAUDE.md" \
+  || fail "both-to-Codex transition changed consumer-owned CLAUDE.md"
 awk -F '\t' '$1 == "setting" && $2 == "runtime" && $3 == "codex" { found = 1 } END { exit !found }' \
   "$full_opt_both/.foundation-integrity/adoption.tsv" \
   || fail "both-to-Codex transition did not update the adoption runtime"
@@ -338,7 +518,11 @@ fi
 
 full_opt_manual_exact="$tmp/full-opt-manual-exact"
 mkdir -p "$full_opt_manual_exact"
-cp "$root/templates/claude-md-block.md" "$full_opt_manual_exact/AGENTS.md"
+printf '%s\n' \
+  '<!-- BEGIN foundation-integrity -->' \
+  'Consumer-owned current instructions.' \
+  '<!-- END foundation-integrity -->' \
+  > "$full_opt_manual_exact/AGENTS.md"
 awk '
   $0 == "# BEGIN foundation-integrity generated state" { inside = 1 }
   inside { print }
@@ -347,9 +531,11 @@ awk '
   > "$full_opt_manual_exact/.gitignore"
 sh "$root/templates/setup/full-opt.sh" --runtime codex --core --no-pre-commit \
   "$full_opt_manual_exact" >/dev/null \
-  || fail "full-opt rejected byte-identical manually adopted blocks"
+  || fail "full-opt rejected consumer-owned instruction content"
 [ -f "$full_opt_manual_exact/.foundation-integrity/adoption.tsv" ] \
-  || fail "full-opt did not claim exact manually adopted blocks in the adoption lock"
+  || fail "full-opt did not persist adoption state"
+grep -Fqx 'Consumer-owned current instructions.' "$full_opt_manual_exact/AGENTS.md" \
+  || fail "full-opt changed consumer-owned instruction content"
 
 full_opt_unowned_instruction="$tmp/full-opt-unowned-instruction"
 mkdir -p "$full_opt_unowned_instruction"
@@ -358,17 +544,13 @@ printf '%s\n' \
   'Consumer-customized foundation policy.' \
   '<!-- END foundation-integrity -->' \
   > "$full_opt_unowned_instruction/AGENTS.md"
-if sh "$root/templates/setup/full-opt.sh" --runtime codex --core --no-pre-commit \
-  "$full_opt_unowned_instruction" >/dev/null 2>&1
-then
-  fail "full-opt claimed and overwrote a customized marked instruction block without a lock"
-fi
+sh "$root/templates/setup/full-opt.sh" --runtime codex --core --no-pre-commit \
+  "$full_opt_unowned_instruction" >/dev/null \
+  || fail "full-opt rejected consumer-owned marked instruction content"
 grep -Fq 'Consumer-customized foundation policy.' "$full_opt_unowned_instruction/AGENTS.md" \
-  || fail "unowned instruction-block conflict did not preserve consumer content"
-[ ! -e "$full_opt_unowned_instruction/.foundation-integrity/adoption.tsv" ] \
-  || fail "unowned instruction-block conflict wrote an adoption lock"
-[ ! -e "$full_opt_unowned_instruction/.agents/skills" ] \
-  || fail "unowned instruction-block conflict was detected after managed-file writes"
+  || fail "consumer-owned instruction content was not preserved"
+[ -e "$full_opt_unowned_instruction/.foundation-integrity/adoption.tsv" ] \
+  || fail "instruction-preservation install did not write adoption state"
 
 full_opt_unowned_ignore="$tmp/full-opt-unowned-ignore"
 mkdir -p "$full_opt_unowned_ignore"
@@ -388,20 +570,6 @@ grep -Fq 'consumer-local-state/' "$full_opt_unowned_ignore/.gitignore" \
   || fail "unowned ignore-block conflict did not preserve consumer content"
 [ ! -e "$full_opt_unowned_ignore/.agents/skills" ] \
   || fail "unowned ignore-block conflict was detected after managed-file writes"
-
-full_opt_second_owner="$tmp/full-opt-second-owner"
-mkdir -p "$full_opt_second_owner"
-printf '# Selected Codex owner\n' > "$full_opt_second_owner/AGENTS.md"
-cp "$root/templates/claude-md-block.md" "$full_opt_second_owner/CLAUDE.md"
-if sh "$root/templates/setup/full-opt.sh" --runtime codex \
-  --instruction-target AGENTS.md --core --no-pre-commit "$full_opt_second_owner" >/dev/null 2>&1
-then
-  fail "full-opt accepted a Foundation Integrity block in the non-selected instruction file"
-fi
-grep -Fqx '# Selected Codex owner' "$full_opt_second_owner/AGENTS.md" \
-  || fail "second-owner rejection changed the selected instruction file"
-[ ! -e "$full_opt_second_owner/.foundation-integrity/adoption.tsv" ] \
-  || fail "second-owner rejection wrote an adoption lock"
 
 full_opt_stale="$tmp/full-opt-stale"
 mkdir -p "$full_opt_stale/.agents/skills/foundation-audit"
@@ -449,10 +617,9 @@ full_opt_instruction_link="$tmp/full-opt-instruction-link"
 external_instruction="$tmp/external-instruction"
 mkdir -p "$full_opt_instruction_link"
 ln -s "$external_instruction" "$full_opt_instruction_link/AGENTS.md"
-if sh "$root/templates/setup/full-opt.sh" --runtime codex --core --no-pre-commit "$full_opt_instruction_link" >/dev/null 2>&1
-then
-  fail "full-opt followed a dangling instruction symlink"
-fi
+sh "$root/templates/setup/full-opt.sh" --runtime codex --core --no-pre-commit \
+  "$full_opt_instruction_link" >/dev/null \
+  || fail "full-opt should ignore consumer-owned instruction symlinks"
 [ ! -e "$external_instruction" ] || fail "full-opt wrote through a dangling instruction symlink"
 
 full_opt_hooks_link="$tmp/full-opt-hooks-link"
@@ -579,8 +746,7 @@ if len(skill_dirs) != 24:
     raise SystemExit(f"expected 24 skills (3 first-party + 21 companion), found {len(skill_dirs)}")
 
 instruction_budgets = {
-    root / "templates/claude-md-block.md": 3000,
-    root / "templates/docs/why-foundation-integrity.md": 7000,
+    root / "docs/foundation/why-foundation-integrity.md": 7000,
 }
 for path, budget in instruction_budgets.items():
     size = len(path.read_bytes())
@@ -588,8 +754,8 @@ for path, budget in instruction_budgets.items():
         raise SystemExit(f"always-loaded context budget exceeded: {path} is {size} bytes > {budget}")
 
 # Skill bodies are deliberately excluded: progressive disclosure loads them on
-# invocation. The discovery descriptions and adopted consumer instruction block are
-# the static active surfaces this repository can budget without deleting payload.
+# invocation. Discovery descriptions are the static active surface this repository
+# can budget without deleting inert payload.
 description_bytes = 0
 for relative in skill_dirs:
     lines = (root / relative / "SKILL.md").read_text().splitlines()
@@ -662,7 +828,7 @@ active_ignores = {
 if not {".foundation/", "docs/research/", "tmp/"}.issubset(active_ignores):
     raise SystemExit("generated-state ignore template must exclude .foundation, docs/research, and tmp content")
 root_ignores = (root / ".gitignore").read_text()
-for required in (".foundation/", "docs/research/*", "!docs/research/.gitkeep", "tmp/"):
+for required in (".foundation/", "docs/research/*", "!docs/research/.gitkeep", "tmp/", "docs/adr/*.md", "!docs/adr/0000-template.md"):
     if required not in root_ignores:
         raise SystemExit(f"root .gitignore missing {required}")
 for canonical in (
@@ -699,7 +865,7 @@ for required_doc in (
 
 runtime_hook_forbidden = {
     root / "templates/hooks/claude-settings.json": '"command": "FI_BLOCK=1',
-    root / "templates/hooks/codex-config.toml": "command = \"sh -c 'FI_BLOCK=1",
+    root / "templates/hooks/codex-hooks.json": '"command": "FI_BLOCK=1',
 }
 for runtime_hook, forbidden in runtime_hook_forbidden.items():
     if forbidden in runtime_hook.read_text():
@@ -1018,24 +1184,36 @@ current_state_path=$(awk -F '\t' '$1 == "setting" && $2 == "current_state_path" 
 runtime=$(awk -F '\t' '$1 == "setting" && $2 == "runtime" { print $3 }' \
   "$root/templates/orchestration/run-contract.tsv")
 
-mkdir -p "$tmp/artifacts/.foundation/orchestration" "$tmp/artifacts/evidence"
+mkdir -p "$tmp/artifacts/.foundation/orchestration/evidence"
 printf 'root current state\n' > "$tmp/artifacts/$current_state_path"
-printf 'worker output\n' > "$tmp/artifacts/evidence/worker.md"
-printf 'transport transcript\n' > "$tmp/artifacts/evidence/transcript.txt"
-printf 'baseline result\n' > "$tmp/artifacts/evidence/baseline.md"
-printf 'pilot result\n' > "$tmp/artifacts/evidence/pilot.md"
+printf 'worker output\n' > "$tmp/artifacts/.foundation/orchestration/evidence/worker.md"
+printf 'transport transcript\n' > "$tmp/artifacts/.foundation/orchestration/evidence/transcript.txt"
+printf 'baseline result\n' > "$tmp/artifacts/.foundation/orchestration/evidence/baseline.md"
+printf 'pilot result\n' > "$tmp/artifacts/.foundation/orchestration/evidence/pilot.md"
 current_state_hash=$(hash_file "$tmp/artifacts/$current_state_path")
-worker_hash=$(hash_file "$tmp/artifacts/evidence/worker.md")
-transcript_hash=$(hash_file "$tmp/artifacts/evidence/transcript.txt")
-baseline_hash=$(hash_file "$tmp/artifacts/evidence/baseline.md")
-pilot_hash=$(hash_file "$tmp/artifacts/evidence/pilot.md")
-printf '<!-- foundation-integrity-coworker-pilot:v2\nrun-id: test-run\ncontract-sha256: %s\nrole-model-matrix-sha256: %s\nruntime: %s\ncurrent-state-path: %s\ncurrent-state-revision: test-revision\ncurrent-state-sha256: %s\nworker-artifact-path: evidence/worker.md\nworker-artifact-sha256: %s\ntranscript-path: evidence/transcript.txt\ntranscript-sha256: %s\nwrite-isolation: not-applicable\nsession-policy: fresh-only\nbaseline-artifact-path: evidence/baseline.md\nbaseline-artifact-sha256: %s\npilot-artifact-path: evidence/pilot.md\npilot-artifact-sha256: %s\nincremental-value: material-counterevidence\ncoordination-cost: 4-turns\ndecision: keep\n-->\n' \
+worker_hash=$(hash_file "$tmp/artifacts/.foundation/orchestration/evidence/worker.md")
+transcript_hash=$(hash_file "$tmp/artifacts/.foundation/orchestration/evidence/transcript.txt")
+baseline_hash=$(hash_file "$tmp/artifacts/.foundation/orchestration/evidence/baseline.md")
+pilot_hash=$(hash_file "$tmp/artifacts/.foundation/orchestration/evidence/pilot.md")
+printf '<!-- foundation-integrity-coworker-pilot:v2\nrun-id: test-run\ncontract-sha256: %s\nrole-model-matrix-sha256: %s\nruntime: %s\ncurrent-state-path: %s\ncurrent-state-revision: test-revision\ncurrent-state-sha256: %s\nworker-artifact-path: .foundation/orchestration/evidence/worker.md\nworker-artifact-sha256: %s\ntranscript-path: .foundation/orchestration/evidence/transcript.txt\ntranscript-sha256: %s\nwrite-isolation: not-applicable\nsession-policy: fresh-only\nbaseline-artifact-path: .foundation/orchestration/evidence/baseline.md\nbaseline-artifact-sha256: %s\npilot-artifact-path: .foundation/orchestration/evidence/pilot.md\npilot-artifact-sha256: %s\nincremental-value: material-counterevidence\ncoordination-cost: 4-turns\ndecision: keep\n-->\n' \
   "$contract_hash" "$matrix_hash" "$runtime" "$current_state_path" "$current_state_hash" \
   "$worker_hash" "$transcript_hash" "$baseline_hash" "$pilot_hash" > "$tmp/valid-pilot-receipt.md"
 FI_ARTIFACT_ROOT="$tmp/artifacts" sh "$root/templates/orchestration/scripts/check-pilot-run-receipt.sh" \
   "$root/templates/orchestration/run-contract.tsv" "$tmp/valid-pilot-receipt.md" \
   "$root/templates/orchestration/role-model-matrix.tsv" \
   || fail "valid pilot receipt rejected"
+
+mkdir -p "$tmp/artifacts/evidence"
+cp "$tmp/artifacts/.foundation/orchestration/evidence/worker.md" \
+  "$tmp/artifacts/evidence/worker.md"
+awk '$1 == "worker-artifact-path:" { print "worker-artifact-path: evidence/worker.md"; next } { print }' \
+  "$tmp/valid-pilot-receipt.md" > "$tmp/trackable-artifact-path.md"
+if FI_ARTIFACT_ROOT="$tmp/artifacts" sh "$root/templates/orchestration/scripts/check-pilot-run-receipt.sh" \
+  "$root/templates/orchestration/run-contract.tsv" "$tmp/trackable-artifact-path.md" \
+  "$root/templates/orchestration/role-model-matrix.tsv" >/dev/null 2>&1
+then
+  fail "pilot receipt accepted a raw artifact outside ignored orchestration state"
+fi
 
 awk '$1 == "current-state-path:" { print "current-state-path: .foundation/orchestration/other.md"; next } { print }' \
   "$tmp/valid-pilot-receipt.md" > "$tmp/mismatched-pilot-receipt.md"
@@ -1084,9 +1262,9 @@ then
 fi
 
 guard_repo="$tmp/guard-repo"
-mkdir -p "$guard_repo/templates/hooks/scripts" "$guard_repo/templates/hooks" "$guard_repo/docs/foundation/receipts" "$guard_repo/src"
-cp "$root/templates/hooks/scripts/foundation-surface-guard.sh" "$guard_repo/templates/hooks/scripts/"
-printf 'src/**\n' > "$guard_repo/templates/hooks/foundation-surface.txt"
+mkdir -p "$guard_repo/.foundation-integrity/hooks" "$guard_repo/docs/foundation/receipts" "$guard_repo/src"
+cp "$root/templates/hooks/scripts/foundation-surface-guard.sh" "$guard_repo/.foundation-integrity/hooks/"
+printf 'src/**\n' > "$guard_repo/.foundation-integrity/hooks/foundation-surface.txt"
 printf 'base\n' > "$guard_repo/src/base.txt"
 git -C "$guard_repo" init -q
 git -C "$guard_repo" config user.email test@example.invalid
@@ -1099,7 +1277,7 @@ guard_oid=$(git -C "$guard_repo" hash-object "$guard_repo/src/base.txt")
 guard_digest=$(printf 'src/base.txt\t%s\n' "$guard_oid" | shasum -a 256 | awk '{print $1}')
 printf '<!-- foundation-integrity-receipt:v2\nclassification: FOUNDATION_OK\nroute: Feature-first\nreviewer: human:test\nverdict: upholds\noutcome: PROCEED\nrevision: %s\nchange-digest: %s\nevidence-ref: commit:%s\ncanonical-invariant: source remains authoritative.\nsurface-path: src/base.txt\n-->\n' \
   "$guard_revision" "$guard_digest" "$guard_revision" > "$guard_repo/docs/foundation/receipts/ok.md"
-(cd "$guard_repo" && FI_BLOCK=1 sh templates/hooks/scripts/foundation-surface-guard.sh) \
+(cd "$guard_repo" && FI_BLOCK=1 sh .foundation-integrity/hooks/foundation-surface-guard.sh) \
   || fail "valid v2 receipt should clear the surface guard"
 
 git -C "$guard_repo" add .
@@ -1113,7 +1291,7 @@ printf '<!-- foundation-integrity-receipt:v2\nclassification: FOUNDATION_OK\nrou
 git -C "$guard_repo" add .
 git -C "$guard_repo" commit -qm guarded-change
 range_head=$(git -C "$guard_repo" rev-parse HEAD)
-(cd "$guard_repo" && FI_RANGE="$range_base..$range_head" FI_BLOCK=1 sh templates/hooks/scripts/foundation-surface-guard.sh) \
+(cd "$guard_repo" && FI_RANGE="$range_base..$range_head" FI_BLOCK=1 sh .foundation-integrity/hooks/foundation-surface-guard.sh) \
   || fail "valid range-bound v2 receipt should clear the surface guard"
 
 # Make the blocking probe reach temporary-workspace creation; a clean worktree
@@ -1121,10 +1299,33 @@ range_head=$(git -C "$guard_repo" rev-parse HEAD)
 printf 'changed-third\n' > "$guard_repo/src/base.txt"
 bad_guard_tmp="$tmp/unavailable-tmp"
 printf 'not-a-directory\n' > "$bad_guard_tmp"
-if (cd "$guard_repo" && TMPDIR="$bad_guard_tmp" FI_BLOCK=1 sh templates/hooks/scripts/foundation-surface-guard.sh) >/dev/null 2>&1
+if (cd "$guard_repo" && TMPDIR="$bad_guard_tmp" FI_BLOCK=1 sh .foundation-integrity/hooks/foundation-surface-guard.sh) >/dev/null 2>&1
 then
   fail "blocking surface guard must fail closed when temporary storage is unavailable"
 fi
+
+codex_hook_repo="$tmp/codex-hook-repo"
+mkdir -p "$codex_hook_repo/.foundation-integrity/hooks" "$codex_hook_repo/src"
+cp "$root/templates/hooks/scripts/foundation-surface-guard.sh" \
+  "$root/templates/hooks/scripts/codex-post-tool-use.sh" \
+  "$codex_hook_repo/.foundation-integrity/hooks/"
+printf 'src/**\n' > "$codex_hook_repo/.foundation-integrity/hooks/foundation-surface.txt"
+printf 'base\n' > "$codex_hook_repo/src/core.txt"
+git -C "$codex_hook_repo" init -q
+git -C "$codex_hook_repo" config user.email test@example.invalid
+git -C "$codex_hook_repo" config user.name test
+git -C "$codex_hook_repo" add .
+git -C "$codex_hook_repo" commit -qm base
+printf 'changed\n' > "$codex_hook_repo/src/core.txt"
+(cd "$codex_hook_repo" && printf '{}\n' | sh .foundation-integrity/hooks/codex-post-tool-use.sh) \
+  > "$tmp/codex-hook-output.json" 2> "$tmp/codex-hook-output.err" \
+  || fail "Codex advisory adapter must not block PostToolUse"
+python3 -m json.tool "$tmp/codex-hook-output.json" >/dev/null \
+  || fail "Codex advisory adapter did not emit valid JSON"
+grep -Fq 'Foundation Integrity found a foundation-surface change' "$tmp/codex-hook-output.json" \
+  || fail "Codex advisory adapter omitted model-visible context"
+grep -Fq 'foundation-surface change without a valid decision' "$tmp/codex-hook-output.err" \
+  || fail "Codex advisory adapter omitted the detailed diagnostic"
 
 sh "$root/tests/install-contracts.sh" || fail "bootstrap/adoption install contracts failed"
 

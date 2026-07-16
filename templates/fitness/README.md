@@ -17,7 +17,7 @@ can all pass every structural rule while being exactly the bent-logic the pack w
 about. So fitness checks are a floor, not a verdict — they catch the violations that
 are cheap to catch and free the reasoning gate to focus on the ones that aren't. See
 "The honest boundary" below and "Residual limits" in
-`../docs/why-foundation-integrity.md`.
+`../why-foundation-integrity.md`.
 
 ## Three tiers
 
@@ -61,9 +61,9 @@ reads the history instead. These signals are **cumulative**, so they live in
 ### Tier 3 — Per-stack adapter ([`adapters/`](./adapters/))
 
 Names a concrete tool per ecosystem to enforce tier-1 intents structurally, per change,
-in CI. This tier is stack-specific **by definition**, so it lives here in `templates/`
-— never in a `SKILL.md`. The maintainer wires the matching adapter explicitly; no
-setup skill silently detects or changes the stack:
+in CI. This tier is stack-specific **by definition**, so it lives in this optional
+fitness guidance directory — never in a `SKILL.md`. The maintainer wires the matching adapter explicitly; no
+setup workflow silently detects or changes the stack:
 
 | Stack | Tool | Enforces |
 | --- | --- | --- |

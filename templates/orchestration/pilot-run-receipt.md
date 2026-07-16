@@ -3,7 +3,7 @@
 Use one copy per run. This is a comparison and lifecycle record, not an automatic score or promotion gate.
 
 Keep raw current-state, worker, transcript, baseline, and pilot artifacts under ignored
-runtime/research storage while the run is active. After the root decision, promote the
+`.foundation/orchestration/` while the run is active. After the root decision, promote the
 accepted decision-lossless receipt (verdict, rationale, decisive evidence hashes,
 strongest alternative, and next removal point) into `docs/foundation/receipts/` or an
 ADR. Never leave durable acceptance represented only by ignored `.foundation/` state.
@@ -19,15 +19,15 @@ runtime: <must-equal-contract-runtime>
 current-state-path: <must-equal-contract-current_state_path>
 current-state-revision: <git-revision-or-artifact-hash>
 current-state-sha256: <sha256-of-current-state-path>
-worker-artifact-path: <repo-relative-preserved-worker-output>
+worker-artifact-path: .foundation/orchestration/<preserved-worker-output>
 worker-artifact-sha256: <sha256-of-worker-artifact>
-transcript-path: <repo-relative-transport-transcript-or-excerpt>
+transcript-path: .foundation/orchestration/<transport-transcript-or-excerpt>
 transcript-sha256: <sha256-of-transcript>
 write-isolation: <pass when an implementer exists; otherwise not-applicable>
 session-policy: fresh-only
-baseline-artifact-path: <repo-relative-simple-baseline-result>
+baseline-artifact-path: .foundation/orchestration/<simple-baseline-result>
 baseline-artifact-sha256: <sha256-of-baseline-artifact>
-pilot-artifact-path: <repo-relative-coworker-result>
+pilot-artifact-path: .foundation/orchestration/<coworker-result>
 pilot-artifact-sha256: <sha256-of-pilot-artifact>
 incremental-value: <material-counterevidence|traceability|recovery|none>
 coordination-cost: <bounded-time-or-turn-count>

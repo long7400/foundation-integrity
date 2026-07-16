@@ -1,0 +1,29 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash|Edit|Write|apply_patch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh \"$(git rev-parse --show-toplevel)/.foundation-integrity/hooks/codex-post-tool-use.sh\"",
+            "timeout": 30,
+            "statusMessage": "Checking foundation surfaces"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "FI_DELTA_ONLY=1 sh \"$(git rev-parse --show-toplevel)/.foundation-integrity/hooks/fitness-check.sh\"",
+            "timeout": 30,
+            "statusMessage": "Checking architecture delta"
+          }
+        ]
+      }
+    ]
+  }
+}

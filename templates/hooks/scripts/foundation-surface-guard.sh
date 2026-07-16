@@ -23,7 +23,7 @@
 #     Signature verification needs committed history, so it only engages in range
 #     mode (pre-push / CI); in worktree mode it degrades to advisory + a deferral note.
 #
-# Receipt format: the v2 block in templates/hooks/review-receipt.md. Receipt files are
+# Receipt format: the v2 block in docs/foundation/review-receipt.md. Receipt files are
 # matched under **/adr/*.md and docs/foundation/receipts/*.md.
 #
 # Modes of evaluation:
@@ -38,6 +38,7 @@ set -eu
 
 here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 surface_file=${FI_SURFACE_FILE:-"$here/../foundation-surface.txt"}
+[ -f "$surface_file" ] || surface_file="$here/foundation-surface.txt"
 mode=${FI_REVIEW_MODE:-advisory}
 
 git rev-parse --is-inside-work-tree >/dev/null 2>&1 || exit 0
@@ -201,6 +202,9 @@ else
   { git diff --name-only HEAD 2>/dev/null || true
     git diff --name-only --cached 2>/dev/null || true
     git ls-files --others --exclude-standard 2>/dev/null || true
+    # Numbered ADRs are intentionally ignored for personal projects, but a local
+    # advisory check may still use one as the decision artifact.
+    if [ -d docs/adr ]; then find docs/adr -type f -name '*.md' -print; fi
   } | sort -u > "$tmpd/all"
 fi
 [ -s "$tmpd/hits" ] || exit 0
@@ -288,7 +292,7 @@ Each surface file above changed but no valid ADR/receipt in this change set name
   2. If a foundation surface is touched, run adversarial-foundation-review in a
      SEPARATE session (ideally a different model). Record its verdict.
   3. Write a v2 receipt (docs/foundation/receipts/) or ADR naming the exact paths above.
-     See templates/hooks/review-receipt.md.
+     See docs/foundation/review-receipt.md.
 In attested mode the receipt's reviewer must match a signed, trusted attestation.
 This makes skipping the review a visible, auditable act; advisory mode is not proof
 a review ran. Set FI_BLOCK=1 for a hard stop.

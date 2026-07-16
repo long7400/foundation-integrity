@@ -16,22 +16,22 @@ Runtime (choose exactly one):
   --both                   Install both projections.
 
 Payload:
-  --core                   Skills + policy/ignore blocks + exactly four project docs
-                           + compact docs/ADR/setup helpers. This is the default.
-  --full-opt               Core + fitness + hooks + inert orchestration.
+  --core                   Skills + ignore block + four project conventions
+                           + compact foundation docs + local ADR template. Default.
+  --full-opt               Core + fitness guidance + active project hooks
+                           + inert orchestration policy.
   --with-fitness, --fitness
                            Add the compact fitness layer.
-  --with-hooks, --hooks    Add hook assets and the warn-only pre-commit; implies fitness.
-  --with-orchestration     Add inert orchestration manuals/profiles.
-  --with-pre-push          Add the blocking pre-push hook; implies hooks + fitness.
+  --with-hooks, --hooks    Install project-scoped runtime hooks, shared scripts,
+                           and the warn-only pre-commit.
+  --with-orchestration     Add inert orchestration policy plus selected profiles.
+  --with-pre-push          Add the blocking pre-push hook; implies hooks.
   --no-pre-commit          Do not newly wire pre-commit.
 
 Source and target:
   --ref REF                Git commit, tag, or branch to resolve to an immutable commit.
                            Defaults to main.
   -d, --directory PATH     Target project. Defaults to the current directory.
-  --instruction-target FILE
-                           Explicitly choose AGENTS.md or CLAUDE.md when ambiguous.
   --dry-run                Download/resolve the snapshot and print effects only.
   -h, --help               Show this help.
 
@@ -42,7 +42,8 @@ Examples:
 
 The bootstrap downloads one resolved repository snapshot into a temporary directory,
 prints the source commit, and calls the project-local adopter. It does not install a
-plugin, change global runtime configuration, or activate orchestration.
+plugin, change global runtime configuration, alter AGENTS.md/CLAUDE.md, or activate
+orchestration.
 EOF
 }
 
@@ -62,7 +63,6 @@ with_orchestration=0
 with_pre_push=0
 no_pre_commit=0
 dry_run=0
-instruction_target=""
 positional_target=""
 
 set_runtime() {
@@ -107,9 +107,9 @@ while [ "$#" -gt 0 ]; do
     --core) set_preset core; shift ;;
     --full-opt) set_preset full-opt; shift ;;
     --with-fitness|--fitness) with_fitness=1; shift ;;
-    --with-hooks|--hooks) with_hooks=1; with_fitness=1; shift ;;
+    --with-hooks|--hooks) with_hooks=1; shift ;;
     --with-orchestration) with_orchestration=1; shift ;;
-    --with-pre-push) with_pre_push=1; with_hooks=1; with_fitness=1; shift ;;
+    --with-pre-push) with_pre_push=1; with_hooks=1; shift ;;
     --no-pre-commit) no_pre_commit=1; shift ;;
     --ref)
       [ "$#" -ge 2 ] || fail "--ref requires a commit, tag, or branch"
@@ -119,11 +119,6 @@ while [ "$#" -gt 0 ]; do
     -d|--directory)
       [ "$#" -ge 2 ] || fail "$1 requires a target path"
       target=$2
-      shift 2
-      ;;
-    --instruction-target)
-      [ "$#" -ge 2 ] || fail "--instruction-target requires AGENTS.md or CLAUDE.md"
-      instruction_target=$2
       shift 2
       ;;
     --dry-run) dry_run=1; shift ;;
@@ -141,7 +136,6 @@ done
 [ "$#" -eq 0 ] || fail "unexpected extra arguments: $*"
 [ -n "$runtime" ] || fail "choose --codex, --claude, or --both"
 [ -z "$positional_target" ] || target=$positional_target
-case "$instruction_target" in ""|AGENTS.md|CLAUDE.md) ;; *) fail "invalid instruction target" ;; esac
 [ -d "$target" ] || fail "target directory does not exist: $target"
 target=$(cd "$target" && pwd -P)
 
@@ -223,7 +217,6 @@ fi
 [ "$with_pre_push" -eq 0 ] || args+=(--with-pre-push)
 [ "$no_pre_commit" -eq 0 ] || args+=(--no-pre-commit)
 [ "$dry_run" -eq 0 ] || args+=(--dry-run)
-[ -z "$instruction_target" ] || args+=(--instruction-target "$instruction_target")
 args+=("$target")
 
 printf 'Foundation Integrity bootstrap\n'

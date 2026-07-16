@@ -29,7 +29,8 @@ For foundation-sensitive work, include a disconfirming probe or the cheapest
 fake-pass path: a green test is insufficient when the same test can preserve the
 wrong owner, archetype, wrapper, or synchronization mechanism.
 
-The pack-wide claim-to-proof matrix is in `templates/fitness/proof-surface-selection.md`.
+The pack-wide claim-to-proof matrix is in `docs/foundation/fitness/proof-surface-selection.md`
+when the optional fitness guidance is adopted.
 Use it when a repro, validator, benchmark, runtime trace, visual check, or owner
 evidence is stronger than a test.
 

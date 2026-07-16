@@ -1,9 +1,9 @@
 # Why foundation integrity
 
 This is the consumer rationale, not a research archive. It keeps only the operational
-claims needed to understand the gate. The distribution repository owns full source
-citations and experiments in its decision records; the compact audit pointer copied
-with the pack is `distribution-provenance.md`.
+claims needed to understand the gate. Installation provenance stays in
+`.foundation-integrity/adoption.tsv`; research citations are not copied into ordinary
+project context.
 
 ## The failure mode
 
@@ -95,10 +95,9 @@ answer. It cannot replace accountable judgment.
 
 ## Context boundary
 
-Installing files is not the same as loading them into a prompt. The adopted
-instruction block and skill discovery metadata are active surfaces; full skill bodies
-load when invoked; templates, orchestration manuals, and project documents remain
-inert until a runtime, skill, or person reads them.
+Installing files is not the same as loading them into a prompt. Skill discovery
+metadata may be active, full skill bodies load when invoked, and project documents or
+orchestration manuals remain inert until a runtime, skill, or person reads them.
 
 Keep this consumer rationale concise. Put project-specific evidence in an ADR or
 receipt, keep exploratory research in ignored working state, and load optional

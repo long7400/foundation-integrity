@@ -4,7 +4,7 @@
 # actor<TAB>id<TAB>role<TAB>task-scope<TAB>write-scope<TAB>artifact-path
 # profile<TAB>actor-id<TAB>profile-id; runtime/model/effort resolve through role-model-matrix.tsv
 setting	runtime	codex
-setting	role_model_matrix	templates/orchestration/role-model-matrix.tsv
+setting	role_model_matrix	.orchestration/foundation/role-model-matrix.tsv
 setting	native_subagents	disabled
 setting	transport_status	attention-only
 setting	current_state_source	root-artifact

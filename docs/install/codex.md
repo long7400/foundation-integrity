@@ -11,11 +11,12 @@ curl -fsSL "https://raw.githubusercontent.com/long7400/foundation-integrity/main
   | bash -s -- --codex
 ```
 
-Add `--with-fitness` for measurement templates or `--full-opt` for fitness, hooks,
-and inert orchestration. Preview with `--dry-run`; use `--directory <repo>` when not
+Add `--with-fitness` for measurement guidance or `--full-opt` for fitness, active
+project hooks, and inert orchestration. Preview with `--dry-run`; use `--directory <repo>` when not
 running inside the target and `--ref <tag-or-commit>` to choose the payload snapshot.
-The bootstrap installs the checked 24-skill Codex projection and project policy but
-does not mutate global Codex configuration or activate orchestration.
+The bootstrap installs the checked 24-skill Codex projection and selected project
+assets but does not edit instruction owners, mutate global Codex configuration, or
+activate orchestration.
 
 ### Plugin install
 
@@ -53,9 +54,9 @@ the same 24 skill names plus its optional presentation/dependency metadata.
 ## Bundled versus active state
 
 There is no Foundation Integrity or Matt setup command required for skill discovery.
-The distribution contains starter issue/domain/triage conventions under
-`docs/agents/` plus shared operating-rule and hook/fitness templates, but installation
-does not copy or activate those files in the consumer repository.
+Plugin or manual skill-only installation does not adopt repository files. The
+one-command project adopter does, using final project-owned paths rather than a
+downstream `templates/` directory.
 
 The three Foundation Integrity skills work without tracker configuration. Companion
 tracker flows expect project-specific `docs/agents/` files and report a gap when they
@@ -68,23 +69,37 @@ sh templates/setup/full-opt.sh --runtime codex --core <repo>
 sh templates/setup/full-opt.sh --runtime codex --full-opt <repo>
 ```
 
-Core installs the 24 managed pack skills in the Codex projection, merges the
-instruction and ignore blocks, copies/customizes exactly four `docs/agents/` files,
-and copies compact docs/ADR plus setup helpers. Fitness, hooks, and orchestration are
-optional components. The warn-only pre-commit hook is wired only when hooks are
-selected and conflict-free. Blocking pre-push is an explicit `--with-pre-push`
-option; runtime hooks, user profiles, and orchestration remain inactive samples. The
-adoption lock at `.foundation-integrity/adoption.tsv` records exact content and file
+Core installs the 24 managed pack skills in the Codex projection, preserves the
+current `AGENTS.md` and `CLAUDE.md`, merges the ignore block, copies/customizes exactly
+four `docs/agents/` files, installs three `docs/foundation/` references, and installs
+`docs/adr/0000-template.md`. Fitness guidance is optional. Hooks install managed
+scripts under `.foundation-integrity/hooks/`, a real `.codex/hooks.json`, and the
+warn-only pre-commit when conflict-free. Codex skips the project hook until the
+project and exact definition are reviewed/trusted through `/hooks`. Blocking pre-push
+is an explicit `--with-pre-push` option. Orchestration policy remains inert under
+`.orchestration/foundation/`; user profiles are not installed. The adoption lock at
+`.foundation-integrity/adoption.tsv` records exact content and file
 modes and permits later updates only for unchanged managed files.
+
+When upgrading a v2 adoption, owned legacy template files are retired but empty
+legacy parent directories may remain: the v2 ledger cannot prove directory ownership.
+If a new v3 destination already exists with identical content but is absent from the
+v2 ledger, the upgrade stops for explicit reconciliation instead of guessing whether
+it was left by an interrupted run or owned by the project.
+The legacy instruction files are preserved byte-for-byte and their ownership is
+transferred to the project. Before any migration mutation, the v2 adoption lock
+records the exact operation plan and binds the exact pending journal under
+`.foundation/`; an unbound journal has no ownership authority. The journal is cleared
+only after the v3 ledger is committed.
 
 Pre-existing identical non-skill files and hooks remain external rather than becoming
 silent deletion authority. The target lock serializes cooperating installer runs;
 apply-time revalidation narrows concurrent-edit races but does not make shell copying
 transactional against arbitrary external writers.
 
-If the repository was first adopted as Claude-only with `CLAUDE.md` as the instruction
-owner, adding Codex requires a deliberate migration to `AGENTS.md`. The installer
-refuses to create a second owner or automatically delete the old policy block.
+Instruction ownership remains a project decision. The installer does not create,
+merge, replace, or claim `AGENTS.md` or `CLAUDE.md`, including when another runtime is
+added later.
 
 Use `--no-pre-commit` to avoid newly wiring the hook. On an upgrade, that flag retains
 an unchanged pre-commit already owned by the adoption lock; it is not an uninstall
@@ -97,8 +112,8 @@ The package ships a root `.gitignore` and
 the bundle into its managed cache; it does not edit the consumer repository's root
 `.gitignore` or create `docs/research/` in the consumer repository. A standalone repo
 install copies only `.agents/skills/`; it also does not create that directory. Merge
-the marked ignore block explicitly so `.foundation/`, `docs/research/`, and `tmp/`
-remain local when tools create them later.
+the marked ignore block explicitly so `.foundation/`, `docs/research/`, `tmp/`, and
+numbered personal ADR history remain local when tools create them later.
 
 The standalone projection is the skill surface, not a hidden full-project installer.
 Use `full-opt` when the optional project-owned measurement and orchestration assets

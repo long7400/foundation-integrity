@@ -1,6 +1,6 @@
 # Herdr + Codex pilot adapter
 
-This is a transparent mapping of the transport-neutral [coworker protocol](./coworker-protocol.md). It is not a Herdr skill, a Codex subagent configuration, or a FirstMate installation.
+This is a transparent mapping of the transport-neutral [coworker protocol](../coworker-protocol.md). It is not a Herdr skill, a Codex subagent configuration, or a FirstMate installation.
 
 ## Effects ledger
 
@@ -16,7 +16,7 @@ Before enabling or installing a Herdr integration, inspect `herdr integration` a
 
 ## Profile rule
 
-Use user-level Codex profile files (`$CODEX_HOME/<name>.config.toml`) and launch with `codex --profile <name>`. Profiles are explicit layers, not inheritance from the root process. The canonical templates and approved mapping live under [`profiles/codex/`](./profiles/codex/) and [`role-model-matrix.tsv`](./role-model-matrix.tsv).
+Use user-level Codex profile files (`$CODEX_HOME/<name>.config.toml`) and launch with `codex --profile <name>`. Profiles are explicit layers, not inheritance from the root process. The canonical templates and approved mapping live under [`profiles/codex/`](../profiles/codex/) and [`role-model-matrix.tsv`](../role-model-matrix.tsv).
 
 Keep any reviewed global `model_instructions_file` untouched. Worker profiles should add role behavior with `developer_instructions`; they must not replace the base instruction file or duplicate `AGENTS.md`.
 
@@ -47,7 +47,7 @@ The repository does not install profiles automatically. Review the files, then c
 only the five Codex envelopes:
 
 ```sh
-cp templates/orchestration/profiles/codex/fi-*.config.toml "$HOME/.codex/"
+cp .orchestration/foundation/profiles/codex/fi-*.config.toml "$HOME/.codex/"
 rm -f "$HOME/.codex/fi-worker-medium.config.toml" \
   "$HOME/.codex/fi-peer-max.config.toml" \
   "$HOME/.codex/fi-implementer-medium.config.toml" \
@@ -76,15 +76,15 @@ already-copied user profiles or hooks.
 ## Transparent launch sequence
 
 1. Verify the root is already inside Herdr (`HERDR_ENV=1`) and record Herdr/Codex versions.
-2. Write and validate a copy of [`run-contract.tsv`](./run-contract.tsv) against [`role-model-matrix.tsv`](./role-model-matrix.tsv), including runtime/profile bindings, the root-bound `current_state_path`, fresh-session policy, root-owned validation, and typed implementer scopes.
-3. Acquire the transparent controller lock with `scripts/controller-lock.sh acquire`; a stale lock requires human inspection, never automatic takeover.
+2. Write and validate a copy of [`run-contract.tsv`](../run-contract.tsv) against [`role-model-matrix.tsv`](../role-model-matrix.tsv), including runtime/profile bindings, the root-bound `current_state_path`, fresh-session policy, root-owned validation, and typed implementer scopes.
+3. Acquire the transparent controller lock with `sh .orchestration/foundation/scripts/controller-lock.sh acquire`; a stale lock requires human inspection, never automatic takeover.
 4. Before any write-capable actor, create an isolated worktree and record a disposable sentinel smoke proving allowed writes succeed and out-of-scope writes are rejected by the actual runtime envelope. No `pass`, no writer.
 5. Create one background tab per coworker so repeated right-splits cannot shrink the root pane. Use IDs returned by Herdr JSON; never construct IDs from display numbers.
 6. Start only the normal Codex interactive executable with the selected canonical profile. Do not pass the task as an argv prompt.
 7. Wait for `idle`, then submit the open task packet with explicit pane targeting.
 8. Wait for `working`; later treat either `idle` or `done` as possible turn completion. Inspect the pane and artifact before deciding.
 9. Keep the root as the only Herdr controller. Coworkers do not call Herdr and do not know the department topology.
-10. Preserve the worker response and transport transcript as separate SHA-256-bound artifacts, reconcile them into the root current-state record, fill [`pilot-run-receipt.md`](./pilot-run-receipt.md), and release the controller lock only after acceptance/teardown. A green validator is not runtime or acceptance evidence.
+10. Preserve the worker response and transport transcript as separate SHA-256-bound artifacts, reconcile them into the root current-state record, fill [`pilot-run-receipt.md`](../pilot-run-receipt.md), and release the controller lock only after acceptance/teardown. A green validator is not runtime or acceptance evidence.
 
 Illustrative commands; read IDs from each JSON response:
 
@@ -134,5 +134,5 @@ teardown, and a single controller lock.
 Do not copy an agent distribution, second-level hierarchy, daemon, project-mode
 state machine, or approval policy. Add a mechanism only after its local invariant,
 write authority, evidence surface, and deletion path are explicit. The compact
-consumer audit pointer is `templates/docs/distribution-provenance.md`; full research
-stays in the distribution ADRs.
+consumer audit pointer is [`docs/foundation/why-foundation-integrity.md`](../../../docs/foundation/why-foundation-integrity.md); full research
+remains local and is not activated by the pilot.

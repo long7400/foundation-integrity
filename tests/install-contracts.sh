@@ -165,14 +165,17 @@ mkdir -p "$core"
 run_install --codex --directory "$core" >/dev/null || fail "default core bootstrap failed"
 [ "$(count_skills "$core/.agents/skills")" = 24 ] || fail "core bootstrap did not install 24 Codex skills"
 [ ! -e "$core/.claude/skills" ] || fail "Codex core bootstrap leaked Claude skills"
-[ -f "$core/templates/docs/why-foundation-integrity.md" ] || fail "core bootstrap omitted compact docs"
-[ -f "$core/templates/adr/0000-template.md" ] || fail "core bootstrap omitted ADR template"
-[ -x "$core/templates/setup/check-credential-permissions.sh" ] || fail "core bootstrap lost setup-helper mode"
+[ -f "$core/docs/foundation/why-foundation-integrity.md" ] || fail "core bootstrap omitted compact docs"
+[ -f "$core/docs/adr/0000-template.md" ] || fail "core bootstrap omitted ADR template"
+[ ! -e "$core/templates" ] || fail "core bootstrap retained a top-level templates directory"
+[ ! -e "$core/templates/setup" ] || fail "core bootstrap copied distribution setup sources"
 [ "$(find "$core/docs/agents" -maxdepth 1 -type f | wc -l | tr -d ' ')" = 4 ] \
   || fail "core bootstrap did not install exactly four consumer docs"
-[ ! -e "$core/templates/fitness" ] || fail "core bootstrap unexpectedly installed fitness"
-[ ! -e "$core/templates/hooks" ] || fail "core bootstrap unexpectedly installed hooks"
-[ ! -e "$core/templates/orchestration" ] || fail "core bootstrap unexpectedly installed orchestration"
+[ ! -e "$core/docs/foundation/fitness" ] || fail "core bootstrap unexpectedly installed fitness"
+[ ! -e "$core/.foundation-integrity/hooks" ] || fail "core bootstrap unexpectedly installed hooks"
+[ ! -e "$core/.orchestration/foundation" ] || fail "core bootstrap unexpectedly installed orchestration"
+grep -Fqx 'docs/adr/*.md' "$core/.gitignore" || fail "core bootstrap did not ignore personal ADR history"
+grep -Fqx '!docs/adr/0000-template.md' "$core/.gitignore" || fail "core bootstrap ignored the ADR template"
 core_lock="$core/.foundation-integrity/adoption.tsv"
 [ "$(setting components "$core_lock")" = core ] || fail "core component ledger is wrong"
 [ "$(setting source-ref "$core_lock")" = main ] || fail "bootstrap source ref is not recorded"
@@ -184,24 +187,65 @@ run_install --claude --with-fitness --directory "$fitness" >/dev/null \
   || fail "Claude fitness bootstrap failed"
 [ "$(count_skills "$fitness/.claude/skills")" = 24 ] || fail "fitness bootstrap did not install 24 Claude skills"
 [ ! -e "$fitness/.agents/skills" ] || fail "Claude fitness bootstrap leaked Codex skills"
-[ -f "$fitness/templates/fitness/proof-surface-selection.md" ] || fail "fitness option omitted fitness assets"
-[ ! -e "$fitness/templates/hooks" ] || fail "fitness-only option unexpectedly installed hooks"
-[ ! -e "$fitness/templates/orchestration" ] || fail "fitness-only option unexpectedly installed orchestration"
+[ -f "$fitness/docs/foundation/fitness/proof-surface-selection.md" ] || fail "fitness option omitted fitness assets"
+[ ! -e "$fitness/.foundation-integrity/hooks" ] || fail "fitness-only option unexpectedly installed hooks"
+[ ! -e "$fitness/.orchestration/foundation" ] || fail "fitness-only option unexpectedly installed orchestration"
 [ "$(setting components "$fitness/.foundation-integrity/adoption.tsv")" = core,fitness ] \
   || fail "fitness component ledger is wrong"
+
+orchestration_codex="$tmp/orchestration-codex"
+mkdir -p "$orchestration_codex"
+run_install --codex --with-orchestration --directory "$orchestration_codex" >/dev/null \
+  || fail "Codex orchestration bootstrap failed"
+[ -d "$orchestration_codex/.orchestration/foundation/profiles/codex" ] \
+  || fail "Codex orchestration omitted Codex profiles"
+[ ! -e "$orchestration_codex/.orchestration/foundation/profiles/claude" ] \
+  || fail "Codex orchestration copied Claude profiles"
+[ -f "$orchestration_codex/.orchestration/foundation/runtime/codex.md" ] \
+  || fail "Codex orchestration omitted the selected adapter"
+[ ! -e "$orchestration_codex/.orchestration/foundation/runtime/claude.md" ] \
+  || fail "Codex orchestration copied the Claude adapter"
+[ -f "$orchestration_codex/.orchestration/foundation/run-contract.tsv" ] \
+  || fail "single-runtime orchestration omitted its contract"
+grep -Fq '../coworker-protocol.md' \
+  "$orchestration_codex/.orchestration/foundation/runtime/codex.md" \
+  || fail "installed Codex adapter retained its pre-move coworker-protocol link"
+grep -Fq '../profiles/codex/' \
+  "$orchestration_codex/.orchestration/foundation/runtime/codex.md" \
+  || fail "installed Codex adapter retained its pre-move profile link"
+grep -Fq '../run-contract.tsv' \
+  "$orchestration_codex/.orchestration/foundation/runtime/codex.md" \
+  || fail "installed Codex adapter retained its pre-move contract link"
+[ -f "$orchestration_codex/.orchestration/foundation/runtime/../coworker-protocol.md" ] \
+  || fail "installed Codex adapter points at a missing coworker protocol"
+[ -d "$orchestration_codex/.orchestration/foundation/runtime/../profiles/codex" ] \
+  || fail "installed Codex adapter points at missing Codex profiles"
+[ -f "$orchestration_codex/.orchestration/foundation/runtime/../run-contract.tsv" ] \
+  || fail "installed Codex adapter points at a missing run contract"
+[ ! -e "$orchestration_codex/.foundation/orchestration" ] \
+  || fail "orchestration adoption created live runtime state"
+[ ! -e "$orchestration_codex/templates" ] \
+  || fail "orchestration adoption retained a top-level templates directory"
 
 hooks="$tmp/hooks"
 mkdir -p "$hooks"
 git -C "$hooks" init -q
 run_install --codex --with-hooks --directory "$hooks" >/dev/null \
   || fail "hooks bootstrap failed"
-[ -f "$hooks/templates/fitness/proof-surface-selection.md" ] || fail "hooks option did not imply fitness"
-[ -f "$hooks/templates/hooks/scripts/fitness-check.sh" ] || fail "hooks option omitted hook assets"
+[ ! -e "$hooks/docs/foundation/fitness" ] || fail "hooks option unexpectedly installed fitness guidance"
+[ -f "$hooks/.foundation-integrity/hooks/fitness-check.sh" ] || fail "hooks option omitted hook assets"
+[ -f "$hooks/.codex/hooks.json" ] || fail "hooks option omitted Codex project hook config"
+[ ! -e "$hooks/.claude/settings.json" ] || fail "Codex hooks option leaked Claude project config"
+grep -Fq '.foundation-integrity/hooks/codex-post-tool-use.sh' "$hooks/.codex/hooks.json" \
+  || fail "Codex project hook does not resolve the managed adapter"
+grep -Fq 'Bash|Edit|Write|apply_patch' "$hooks/.codex/hooks.json" \
+  || fail "Codex project hook misses shell or patch-based writes"
 [ -x "$hooks/.git/hooks/pre-commit" ] || fail "hooks option did not wire warn-only pre-commit"
 [ ! -e "$hooks/.git/hooks/pre-push" ] || fail "hooks option activated pre-push"
-[ ! -e "$hooks/templates/orchestration" ] || fail "hooks option unexpectedly installed orchestration"
-[ "$(setting components "$hooks/.foundation-integrity/adoption.tsv")" = core,fitness,hooks ] \
+[ ! -e "$hooks/.orchestration/foundation" ] || fail "hooks option unexpectedly installed orchestration"
+[ "$(setting components "$hooks/.foundation-integrity/adoption.tsv")" = core,hooks ] \
   || fail "hooks component ledger is wrong"
+[ ! -e "$hooks/templates" ] || fail "hooks bootstrap retained a top-level templates directory"
 
 full="$tmp/full"
 mkdir -p "$full"
@@ -209,18 +253,34 @@ git -C "$full" init -q
 run_install --both --full-opt --directory "$full" >/dev/null || fail "full bootstrap failed"
 [ "$(count_skills "$full/.agents/skills")" = 24 ] || fail "full bootstrap omitted Codex skills"
 [ "$(count_skills "$full/.claude/skills")" = 24 ] || fail "full bootstrap omitted Claude skills"
-for selected in templates/fitness templates/hooks templates/orchestration; do
+for selected in docs/foundation/fitness .foundation-integrity/hooks .orchestration/foundation; do
   [ -d "$full/$selected" ] || fail "full bootstrap omitted $selected"
 done
 [ -x "$full/.git/hooks/pre-commit" ] || fail "full bootstrap did not wire pre-commit"
 [ ! -e "$full/.git/hooks/pre-push" ] || fail "full bootstrap activated pre-push without opt-in"
-[ ! -e "$full/.codex/config.toml" ] || fail "full bootstrap activated Codex project config"
-[ ! -e "$full/.claude/settings.json" ] || fail "full bootstrap activated Claude project settings"
+[ -f "$full/.codex/hooks.json" ] || fail "full bootstrap omitted Codex project hook config"
+[ -f "$full/.claude/settings.json" ] || fail "full bootstrap omitted Claude project hook config"
+grep -Fq 'Bash|Edit|Write|MultiEdit' "$full/.claude/settings.json" \
+  || fail "Claude project hook misses shell-based writes"
+[ -d "$full/.orchestration/foundation/profiles/codex" ] || fail "full bootstrap omitted Codex orchestration profiles"
+[ -d "$full/.orchestration/foundation/profiles/claude" ] || fail "full bootstrap omitted Claude orchestration profiles"
+grep -Fq '../coworker-protocol.md' "$full/.orchestration/foundation/runtime/claude.md" \
+  || fail "installed Claude adapter retained its pre-move coworker-protocol link"
+grep -Fq '../profiles/claude/' "$full/.orchestration/foundation/runtime/claude.md" \
+  || fail "installed Claude adapter retained its pre-move profile link"
+[ -f "$full/.orchestration/foundation/runtime/../coworker-protocol.md" ] \
+  || fail "installed Claude adapter points at a missing coworker protocol"
+[ -d "$full/.orchestration/foundation/runtime/../profiles/claude" ] \
+  || fail "installed Claude adapter points at missing Claude profiles"
+[ -f "$full/.orchestration/foundation/run-contract.codex.tsv" ] || fail "both-runtime orchestration omitted Codex contract"
+[ -f "$full/.orchestration/foundation/run-contract.claude.tsv" ] || fail "both-runtime orchestration omitted Claude contract"
+[ ! -e "$full/.orchestration/foundation/run-contract.tsv" ] || fail "both-runtime orchestration installed an ambiguous contract"
 [ ! -e "$full/.foundation/orchestration" ] || fail "full bootstrap activated orchestration runtime state"
+[ ! -e "$full/templates" ] || fail "full bootstrap retained a top-level templates directory"
 [ "$(setting components "$full/.foundation-integrity/adoption.tsv")" = core,fitness,hooks,orchestration ] \
   || fail "full component ledger is wrong"
 
-mode_tamper="$full/templates/hooks/scripts/fitness-check.sh"
+mode_tamper="$full/.foundation-integrity/hooks/fitness-check.sh"
 chmod 644 "$mode_tamper"
 if run_install --both --full-opt --directory "$full" >/dev/null 2>&1; then
   fail "rerun accepted a managed executable-mode change"
@@ -229,19 +289,39 @@ fi
   || fail "mode-conflict rejection changed the consumer mode"
 [ ! -e "$full/.foundation-integrity-install.lock" ] || fail "failed rerun leaked its acquired lock"
 
+codex_hook_conflict="$tmp/codex-hook-conflict"
+mkdir -p "$codex_hook_conflict/.codex"
+printf '{"hooks":{"Stop":[]}}\n' > "$codex_hook_conflict/.codex/hooks.json"
+if run_install --codex --with-hooks --no-pre-commit --directory "$codex_hook_conflict" >/dev/null 2>&1; then
+  fail "hooks bootstrap overwrote an existing Codex hook policy"
+fi
+grep -Fqx '{"hooks":{"Stop":[]}}' "$codex_hook_conflict/.codex/hooks.json" \
+  || fail "Codex hook conflict damaged the existing policy"
+[ ! -e "$codex_hook_conflict/.agents/skills" ] || fail "Codex hook preflight conflict partially installed skills"
+
+claude_hook_conflict="$tmp/claude-hook-conflict"
+mkdir -p "$claude_hook_conflict/.claude"
+printf '{"permissions":{"allow":[]}}\n' > "$claude_hook_conflict/.claude/settings.json"
+if run_install --claude --with-hooks --no-pre-commit --directory "$claude_hook_conflict" >/dev/null 2>&1; then
+  fail "hooks bootstrap overwrote existing Claude project settings"
+fi
+grep -Fqx '{"permissions":{"allow":[]}}' "$claude_hook_conflict/.claude/settings.json" \
+  || fail "Claude settings conflict damaged the existing policy"
+[ ! -e "$claude_hook_conflict/.claude/skills" ] || fail "Claude hook preflight conflict partially installed skills"
+
 external_identical="$tmp/external-identical"
-mkdir -p "$external_identical/templates/fitness"
-cp "$root/templates/fitness/README.md" "$external_identical/templates/fitness/README.md"
+mkdir -p "$external_identical/docs/foundation/fitness"
+cp "$root/templates/fitness/README.md" "$external_identical/docs/foundation/fitness/README.md"
 run_install --codex --full-opt --no-pre-commit --directory "$external_identical" >/dev/null \
   || fail "external-identical fixture install failed"
-awk -F '\t' '$1 == "external" && $3 == "templates/fitness/README.md" { found = 1 } END { exit !found }' \
+awk -F '\t' '$1 == "external" && $3 == "docs/foundation/fitness/README.md" { found = 1 } END { exit !found }' \
   "$external_identical/.foundation-integrity/adoption.tsv" \
   || fail "pre-existing identical file was silently claimed as managed"
 run_install --codex --core --no-pre-commit --directory "$external_identical" >/dev/null \
   || fail "external-identical component downgrade failed"
-cmp -s "$root/templates/fitness/README.md" "$external_identical/templates/fitness/README.md" \
+cmp -s "$root/templates/fitness/README.md" "$external_identical/docs/foundation/fitness/README.md" \
   || fail "component downgrade removed or changed an external-identical file"
-[ ! -e "$external_identical/templates/orchestration/coworker-protocol.md" ] \
+[ ! -e "$external_identical/.orchestration/foundation/coworker-protocol.md" ] \
   || fail "component downgrade retained an installer-owned optional file"
 
 external_hook="$tmp/external-hook"
@@ -315,13 +395,12 @@ instruction_external="$tmp/instruction-external.md"
 mkdir -p "$instruction_hardlink"
 printf '# Shared instructions\n' > "$instruction_external"
 ln "$instruction_external" "$instruction_hardlink/AGENTS.md"
-if run_install --codex --directory "$instruction_hardlink" >/dev/null 2>&1; then
-  fail "bootstrap managed a hardlinked instruction owner"
-fi
+run_install --codex --directory "$instruction_hardlink" >/dev/null \
+  || fail "bootstrap rejected a consumer-owned hardlinked instruction file"
 grep -Fxq '# Shared instructions' "$instruction_external" \
-  || fail "instruction-hardlink rejection changed the external inode"
-[ ! -e "$instruction_hardlink/.foundation-integrity/adoption.tsv" ] \
-  || fail "instruction-hardlink rejection wrote adoption state"
+  || fail "bootstrap changed the consumer-owned instruction inode"
+[ -e "$instruction_hardlink/.foundation-integrity/adoption.tsv" ] \
+  || fail "instruction-preserving install omitted adoption state"
 
 downgrade="$tmp/downgrade"
 mkdir -p "$downgrade"
@@ -330,9 +409,10 @@ run_install --codex --full-opt --directory "$downgrade" >/dev/null \
   || fail "downgrade fixture full install failed"
 run_install --codex --core --directory "$downgrade" >/dev/null \
   || fail "full-to-core downgrade failed"
-assert_no_files "$downgrade/templates/fitness"
-assert_no_files "$downgrade/templates/hooks"
-assert_no_files "$downgrade/templates/orchestration"
+assert_no_files "$downgrade/docs/foundation/fitness"
+assert_no_files "$downgrade/.foundation-integrity/hooks"
+assert_no_files "$downgrade/.orchestration/foundation"
+[ ! -e "$downgrade/.codex/hooks.json" ] || fail "core downgrade retained Codex project hook config"
 [ ! -e "$downgrade/.git/hooks/pre-commit" ] || fail "core downgrade retained an unchanged managed pre-commit"
 [ "$(setting components "$downgrade/.foundation-integrity/adoption.tsv")" = core ] \
   || fail "core downgrade ledger retained optional components"
@@ -342,13 +422,13 @@ mkdir -p "$downgrade_conflict"
 git -C "$downgrade_conflict" init -q
 run_install --codex --full-opt --directory "$downgrade_conflict" >/dev/null \
   || fail "downgrade-conflict fixture full install failed"
-printf 'consumer edit\n' >> "$downgrade_conflict/templates/fitness/README.md"
+printf 'consumer edit\n' >> "$downgrade_conflict/docs/foundation/fitness/README.md"
 if run_install --codex --core --directory "$downgrade_conflict" >/dev/null 2>&1; then
   fail "core downgrade removed a consumer-edited optional file"
 fi
-grep -Fq 'consumer edit' "$downgrade_conflict/templates/fitness/README.md" \
+grep -Fq 'consumer edit' "$downgrade_conflict/docs/foundation/fitness/README.md" \
   || fail "downgrade conflict damaged the edited optional file"
-[ -e "$downgrade_conflict/templates/orchestration/coworker-protocol.md" ] \
+[ -e "$downgrade_conflict/.orchestration/foundation/coworker-protocol.md" ] \
   || fail "downgrade conflict partially removed other optional components"
 [ -x "$downgrade_conflict/.git/hooks/pre-commit" ] \
   || fail "downgrade conflict partially removed the managed hook"

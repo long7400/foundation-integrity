@@ -157,6 +157,10 @@ check_artifact() {
   path=$2
   expected=$3
   safe_repo_path "$path" || { echo "pilot receipt: $label path is not canonical" >&2; exit 1; }
+  case "$path" in
+    .foundation/orchestration/*) ;;
+    *) echo "pilot receipt: $label must remain under ignored .foundation/orchestration/: $path" >&2; exit 1 ;;
+  esac
   [ -f "$root/$path" ] || { echo "pilot receipt: $label is missing: $path" >&2; exit 1; }
   actual=$(sha256_file "$root/$path")
   [ "$actual" = "$expected" ] || { echo "pilot receipt: $label digest mismatch" >&2; exit 1; }

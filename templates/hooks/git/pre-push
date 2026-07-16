@@ -10,7 +10,9 @@
 # Install: copy to .git/hooks/pre-push and `chmod +x`, or use core.hooksPath.
 # To keep it warn-only, unset FI_BLOCK below.
 set -eu
-DIR="templates/hooks/scripts"   # <- change to where fitness scripts live in your repo
+root=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+DIR="$root/.foundation-integrity/hooks"
+cd "$root"
 export FI_BLOCK=1               # block the push on a violation; comment out to warn-only
 # For attested mode the policy (foundation-surface.txt), this hook, the guard script,
 # AND the allowlist must live OUTSIDE the agent's write scope — otherwise the author

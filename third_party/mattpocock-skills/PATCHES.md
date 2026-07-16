@@ -74,8 +74,9 @@ Any future modification to vendored content requires, in the same change:
 code-review artifact contract; its untested packaging script, secret/symlink risks,
 and incomplete-success behavior remain intentionally excluded.
 
-The temporary-source absorption and rejection record, including exact source hashes,
-is [`docs/adr/0003-temporary-skill-absorption.md`](../../docs/adr/0003-temporary-skill-absorption.md).
+The temporary-source absorption and rejection record remains in the repository's
+existing git history; this personal pack does not copy that history into downstream
+projects.
 
 Prefer updating to a reviewed upstream commit over growing local patches. Re-evaluate
 each patch against the two primary problems and remove it when upstream provides an

@@ -79,7 +79,7 @@ reference implementation. If the comparison is load-bearing and no trustworthy
 reference is available, record that as an unknown and return `RESEARCH_ONLY` rather
 than making the feature fit the current category.
 
-Optional shared names such as **Balloon** (workaround amplification) and **Brake** (a missing load-bearing safety/lifecycle primitive) are defined in the distribution/repository-root file `templates/docs/foundation-pattern-language.md`. They are mnemonics, not findings: never infer them from keywords, and never use a name without a foundation claim, primary evidence, a disconfirming probe, and a fitness check or explicit semantic-only limit.
+Optional shared names such as **Balloon** (workaround amplification) and **Brake** (a missing load-bearing safety/lifecycle primitive) are defined in `docs/foundation/foundation-pattern-language.md` when the project adopts the compact docs. They are mnemonics, not findings: never infer them from keywords, and never use a name without a foundation claim, primary evidence, a disconfirming probe, and a fitness check or explicit semantic-only limit.
 
 ### 3. Write the foundation receipt
 
@@ -120,7 +120,7 @@ Exactly one:
 
 ### 6. Record the decision (ADR)
 
-For any **Foundation-first** or **Bounded-compatibility** route, write an ADR capturing *why* — the claim, the counter-evidence, the route, and (for a temporary seam) its removal condition. Use the distribution/repository-root file `templates/adr/0000-template.md`. This is the antidote to "nobody remembers why this is here" — it directly protects the next maintainer's understanding.
+For any **Foundation-first** or **Bounded-compatibility** route, write an ADR capturing *why* — the claim, the counter-evidence, the route, and (for a temporary seam) its removal condition. Use `docs/adr/0000-template.md` when the project has adopted it. This is the antidote to "nobody remembers why this is here" — it directly protects the next maintainer's understanding.
 
 ### 7. Stop conditions
 
@@ -130,10 +130,10 @@ Escalate to `adversarial-foundation-review` — a separate session whose only jo
 
 ## Fitness checks — put the hidden variable into the objective
 
-An audit is a *reasoning* check; its honesty is its weak point. Where a real code stack exists, back it with **machine-measured** fitness checks so structural violations trip mechanically, with no good-faith required. The intents (tech-neutral): dependency direction holds, no new cycles, no duplicated domain type, complexity under a ceiling, no new change-coupling across module boundaries, layering respected. A claim rated `OK` should point at the check that enforces it, not just at your confidence. The maintained templates and runtime projections under `templates/fitness/` are the wiring surface; no second setup skill is required. Green fitness checks are necessary, not sufficient: they prove no rule broke, not that the design is right.
+An audit is a *reasoning* check; its honesty is its weak point. Where a real code stack exists, back it with **machine-measured** fitness checks so structural violations trip mechanically, with no good-faith required. The intents (tech-neutral): dependency direction holds, no new cycles, no duplicated domain type, complexity under a ceiling, no new change-coupling across module boundaries, layering respected. A claim rated `OK` should point at the check that enforces it, not just at your confidence. The optional guidance under `docs/foundation/fitness/` and the managed hook scripts are the wiring surface; no second setup skill is required. Green fitness checks are necessary, not sufficient: they prove no rule broke, not that the design is right.
 
 Choose evidence by the claim being made, not by ritual. Use the
-distribution/repository-root file `templates/fitness/proof-surface-selection.md` to
+the adopted file `docs/foundation/fitness/proof-surface-selection.md` to
 select a repro, contract test, validator, benchmark, runtime observation, visual
 check, or owner-boundary proof that can falsify the claim and survive harmless
 internal refactors.

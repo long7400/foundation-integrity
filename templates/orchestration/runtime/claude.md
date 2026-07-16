@@ -1,6 +1,6 @@
 # Herdr + Claude pilot adapter
 
-This maps the transport-neutral [coworker protocol](./coworker-protocol.md) and [model policy](./model-role-policy.md) to Claude Code. It is not a skill, native subagent definition, plugin, or workflow engine.
+This maps the transport-neutral [coworker protocol](../coworker-protocol.md) and [model policy](../model-role-policy.md) to Claude Code. It is not a skill, native subagent definition, plugin, or workflow engine.
 
 ## Native configuration surface
 
@@ -17,15 +17,17 @@ Claude Code does not use Codex-style named profile overlays. Use an explicit lau
 - a fresh `--session-id` distinguishes a new top-level thread from resume/fork continuity;
 - `--name` records the role/profile label.
 
-Canonical role prompts and commands live under [`profiles/claude/`](./profiles/claude/). Do not use `--agent`, `--agents`, `claude agents`, `--background`, or `--bg` as a second personnel control plane.
+Canonical role prompts and commands live under [`profiles/claude/`](../profiles/claude/). Do not use `--agent`, `--agents`, `claude agents`, `--background`, or `--bg` as a second personnel control plane.
 
 ## Launch sequence
 
-1. Root validates `role-model-matrix.tsv` and the run contract, including every actor/profile binding.
-2. Root runs `templates/setup/check-credential-permissions.sh "$HOME/.claude/settings.json"`; any group/other access is a launch failure. This protects against other local users, not same-user processes.
-3. Root acquires the transparent controller lock with `scripts/controller-lock.sh acquire`; a stale lock requires human inspection, never automatic takeover.
+1. Root validates [`role-model-matrix.tsv`](../role-model-matrix.tsv) and the run contract, including every actor/profile binding.
+2. Root verifies owner-only permissions on the user settings file with the local
+   platform tool before launch; project adoption does not copy credential-bearing
+   helpers. This protects against other local users, not same-user processes.
+3. Root acquires the transparent controller lock with `sh .orchestration/foundation/scripts/controller-lock.sh acquire`; a stale lock requires human inspection, never automatic takeover.
 4. Root creates or selects the explicit cwd/worktree and records it. Before any write-capable actor, run and record a disposable write-isolation sentinel smoke; no `pass`, no writer.
-5. Root creates a background pane/tab and starts the exact interactive command from `profiles/claude/launch-commands.md` with a fresh UUID; do not pass the task as an argv prompt.
+5. Root creates a background pane/tab and starts the exact interactive command from [`profiles/claude/launch-commands.md`](../profiles/claude/launch-commands.md) with a fresh UUID; do not pass the task as an argv prompt.
 6. After the normal interactive prompt is ready, root submits the open task packet.
 7. Transport status is attention-only. Root reads the result/artifact, preserves transcript and worker-output digests, reconciles them into canonical state, then releases the controller lock after teardown.
 

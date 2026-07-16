@@ -16,5 +16,9 @@ node_modules/
 docs/research/*
 !docs/research/.gitkeep
 
+# Personal ADR working history. Keep only the reusable template in the pack.
+docs/adr/*.md
+!docs/adr/0000-template.md
+
 # User-provided scratch inputs (for example a temporary skill drop) are local only.
 tmp/

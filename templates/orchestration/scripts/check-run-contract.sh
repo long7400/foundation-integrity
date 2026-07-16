@@ -143,7 +143,7 @@ END {
   if (header != 1) fail("expected exactly one v2 header")
   runtime = settings["runtime"]
   if (runtime !~ /^(codex|claude)$/) fail("runtime must be codex or claude")
-  if (settings["role_model_matrix"] != "templates/orchestration/role-model-matrix.tsv") fail("role_model_matrix must name the canonical repo path")
+  if (settings["role_model_matrix"] != ".orchestration/foundation/role-model-matrix.tsv") fail("role_model_matrix must name the canonical repo path")
   if (settings["native_subagents"] != "disabled") fail("native_subagents must be disabled for this pilot")
   if (settings["transport_status"] != "attention-only") fail("transport_status must be attention-only")
   if (settings["current_state_source"] != "root-artifact") fail("current_state_source must be root-artifact")

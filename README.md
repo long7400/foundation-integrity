@@ -20,10 +20,8 @@ Workflow packs (spec → tickets → implement → test → review) optimise *fl
 So the reasoning gate alone isn't enough — an agent grading its own foundation hits a measured bias: LLM judges score their own familiar (low-perplexity) output higher ([arXiv 2410.21819](https://arxiv.org/abs/2410.21819)). The pack pairs the reasoning gate with a **measurement layer** — fitness functions and hooks that check structure mechanically, needing no good faith and no one to read the code.
 
 The compact consumer rationale is in
-[`templates/docs/why-foundation-integrity.md`](./templates/docs/why-foundation-integrity.md).
-Research and context-activation evidence stay in repository ADRs, especially
-[`ADR-0004`](./docs/adr/0004-context-budget-and-coworker-routing.md), so downstream
-projects do not inherit the pack's research bibliography.
+[`docs/foundation/why-foundation-integrity.md`](./docs/foundation/why-foundation-integrity.md).
+Research notes stay local and are never copied into downstream project context.
 
 ## What's in the box
 
@@ -33,11 +31,21 @@ projects do not inherit the pack's research bibliography.
 | `adversarial-foundation-review` | Any foundation-surface touch, mismatch signal, or regressed fitness check — not only self-rated `SUSPECT`/`BLOCKED` | An independent session (ideally a different model) whose only job is to *refute* the audit's claim — kills the "the agent that wants to ship also grades its own foundation" conflict of interest. |
 | `foundation-health` | Every few waves, separate from feature work | Reads accumulated signals (git churn, open ADRs, past receipts) and reports drift the per-feature gate can't see. |
 
-Plus a **measurement layer** the skills lean on ([`templates/fitness/`](./templates/fitness/) + [`templates/hooks/`](./templates/hooks/)): tech-neutral fitness *intents*, claim-to-proof-surface selection, a git-only tier that runs in any repo, per-stack adapters, and hooks — git-level (runtime-neutral) plus Claude and Codex — that run the checks whether or not the agent cooperates.
+Plus a **measurement layer** authored in [`templates/fitness/`](./templates/fitness/)
+and [`templates/hooks/`](./templates/hooks/). Project adoption places optional
+fitness guidance under `docs/foundation/fitness/`, executable checks under
+`.foundation-integrity/hooks/`, and runtime wiring in `.codex/hooks.json` or
+`.claude/settings.json`.
 
-The pack also includes an **experimental, opt-in coworker pilot** in [`templates/orchestration/`](./templates/orchestration/). It keeps terminal/session transport separate from workflow authority, uses Codex profile overlays and Claude launch envelopes rather than a transport-control skill inside workers, and ships a machine-checked role/model matrix, root-only validation/controller locks, fresh-session policy, digest-bound current-state/worker/transcript artifacts, and a controlled [weak-foundation baseline benchmark](./templates/orchestration/weak-foundation-benchmark.md). The validators check declarations and artifact binding; they do not prove effective runtime state, reasoning quality, or correctness. The pilot is not a skill; explicit `full-opt` adoption copies its inert templates but never activates it. It does not depend on or install FirstMate.
+The pack also includes an **experimental, opt-in coworker pilot** authored in
+[`templates/orchestration/`](./templates/orchestration/). Adoption projects only the
+selected runtime profiles into `.orchestration/foundation/`; live locks, transcripts,
+and run artifacts stay under ignored `.foundation/orchestration/`. The pilot is not a
+skill and full-opt never activates it or installs FirstMate.
 
-Shared names such as **Balloon** and **Brake** are documented as optional mnemonics in [`templates/docs/foundation-pattern-language.md`](./templates/docs/foundation-pattern-language.md). The names are never findings by themselves; each must resolve to a foundation claim, primary evidence, a disconfirming probe, and a fitness check or an explicit semantic-only limit.
+Shared names such as **Balloon** and **Brake** are documented as optional mnemonics in
+[`docs/foundation/foundation-pattern-language.md`](./docs/foundation/foundation-pattern-language.md).
+The names are never findings by themselves.
 
 ## Pinned Matt companion
 
@@ -62,8 +70,9 @@ bundle. Standalone installation puts unnamespaced skills directly in a project.
 
 ### One-command project adoption
 
-For a personal repository that should own the skills and policy files directly, run
-the bootstrap from the target repository:
+For a personal repository that should own the skills and selected project assets
+directly, run the bootstrap from the target repository. Existing `AGENTS.md` and
+`CLAUDE.md` remain untouched:
 
 ```bash
 # Codex: lightweight core (default)
@@ -80,11 +89,11 @@ curl -fsSL "https://raw.githubusercontent.com/long7400/foundation-integrity/main
 ```
 
 The remote bootstrap defaults to `--core`; it requires exactly one of `--codex`,
-`--claude`, or `--both`. `--with-fitness` adds measurement templates,
-`--with-hooks` adds warn-only hook assets and implies fitness,
-`--with-orchestration` copies the inert coworker pilot, and `--full-opt` selects all
-three optional surfaces. Blocking pre-push remains a separate `--with-pre-push`
-choice. Use `--directory <repo>` outside the target directory and
+`--claude`, or `--both`. `--with-fitness` adds optional guidance,
+`--with-hooks` installs active project-scoped runtime hooks plus shared scripts,
+`--with-orchestration` copies inert policy and only the selected runtime profiles,
+and `--full-opt` selects all three. Hooks do not imply the fitness documentation.
+Blocking pre-push remains a separate `--with-pre-push` choice. Use `--directory <repo>` outside the target directory and
 `--ref <tag-or-commit>` to select the payload revision.
 
 The bootstrap resolves the requested ref to one commit, downloads that immutable
@@ -190,20 +199,16 @@ they do not replace it.
 
 ## What installation does—and does not—activate
 
-Installing the plugin automatically makes the 24 skills discoverable. It does not
-silently mutate the consumer repository.
+Plugin installation makes the 24 skills discoverable but does not mutate the
+repository. The one-command project adopter is different: core installs the selected
+skill projection, four `docs/agents/` conventions, three compact foundation docs, the
+local ADR template, and the marked ignore block.
 
-The following remain explicit, reviewable adoption steps:
-
-- merge the operating-rule block into the canonical `AGENTS.md` or `CLAUDE.md`;
-- customize/copy `docs/agents/` if tracker, domain, or triage workflows are wanted;
-- merge the supplied `.gitignore` block;
-- select fitness adapters and wire git/runtime hooks;
-- create `docs/research/` only when research actually runs; and
-- enable the experimental coworker pilot.
-
-This distinction is intentional: files present in the distribution are not claimed
-to be active in a project until that project adopts them.
+`--with-hooks` installs real project-scoped hook configuration. Codex still requires
+the project and exact hook definitions to be reviewed/trusted through `/hooks`.
+`--with-orchestration` remains inert: it copies policy/profile files but does not open
+panes, install global profiles, or create live state. Neither path edits `AGENTS.md`
+or `CLAUDE.md`.
 
 ## Project adoption presets and local adopter
 
@@ -220,21 +225,34 @@ sh templates/setup/full-opt.sh --runtime both --full-opt <repo>
 Use `--runtime claude` for Claude only or `--runtime both` for both checked runtime
 projections. Each selected projection contains the same 24 skills.
 
-Core always installs the selected skills, the marked instruction and ignore blocks,
-exactly four `docs/agents/` files, compact consumer docs/ADR, and setup helpers.
-Fitness, hooks, and orchestration are additive selections. The installer is
-transparent and idempotent. It:
+Core always installs the selected skills and marked ignore block, exactly four
+`docs/agents/` files, three compact foundation docs, and `docs/adr/0000-template.md`.
+Fitness guidance, active hooks, and inert orchestration are additive selections. The
+installer is transparent and idempotent. It:
 
 - installs all 24 managed pack skills for each selected runtime while preserving
   unrelated consumer-owned skills outside those managed directories;
-- merges the marked Foundation Integrity block into the resolved instruction owner;
-- creates a Claude `@AGENTS.md` shim only when Claude is selected, `AGENTS.md` is the
-  owner, and no substantive `CLAUDE.md` would be displaced;
-- merges ignore rules for `.foundation/`, `docs/research/`, and `tmp/`;
+- leaves existing `AGENTS.md` and `CLAUDE.md` byte-for-byte untouched and never
+  creates either instruction file;
+- merges ignore rules for `.foundation/`, `docs/research/`, `tmp/`, and personal
+  numbered ADR history while preserving `docs/adr/0000-template.md`;
 - copies the four `docs/agents/` conventions and customizes the GitHub tracker from
   `origin` when possible;
-- copies `templates/adr`, compact consumer docs, and setup helpers, plus only the
-  selected `fitness`, `hooks`, and orchestration surfaces;
+- never creates a downstream `templates/` directory;
+- on a v2 upgrade, retires owned legacy template files but preserves empty legacy
+  parent directories because the v2 ledger has file ownership only; an ambiguous
+  pre-existing identical v3 path is a conflict, never silently claimed;
+- on a v2 upgrade, preserves `AGENTS.md` and `CLAUDE.md` byte-for-byte and records a
+  digest-bound pending journal; the still-authoritative v2 adoption lock records the
+  exact operation plan and binds that exact journal before mutation, so an unbound or
+  planted journal cannot claim an identical project file during recovery;
+- places optional fitness guidance in `docs/foundation/fitness/`;
+- places shared executable hooks in `.foundation-integrity/hooks/`, installs
+  `.codex/hooks.json` and/or `.claude/settings.json` for selected runtimes, and refuses
+  to black-box merge an existing differing config;
+- places static coworker policy in `.orchestration/foundation/`, copying only the
+  selected runtime profile subtree while reserving `.foundation/orchestration/` for
+  ignored live state;
 - writes `.foundation-integrity/adoption.tsv` with the distribution version, source
   ref/revision, payload digest, selected components, and content plus POSIX mode for
   every managed file/hook;
@@ -246,9 +264,9 @@ transparent and idempotent. It:
 an unchanged pre-commit hook already owned by the adoption lock; it does not silently
 uninstall that hook. Removal stays ledger-driven as described below.
 
-It does **not** copy research working notes, duplicate the already-merged
-`claude-md-block`/gitignore source templates, merge runtime hook samples, install user
-profiles, enable a session-backend integration, open panes, or activate orchestration.
+It does **not** copy research working notes, duplicate the merged gitignore source,
+install user-global profiles, enable a session-backend integration, open panes, or
+activate orchestration.
 Existing differing project files are reported and left untouched; the main setup
 aborts before installer-managed writes when preflight detects a conflict. A
 target-local `.foundation-integrity-install.lock` serializes applying runs and is
@@ -276,27 +294,21 @@ reported as external-identical and is not claimed for future update or removal.
 Selected runtime skill directories are the exception: choosing that runtime explicitly
 adopts its exact 24-skill projection.
 
-A fresh Claude-only setup normally owns its block in `CLAUDE.md`; Codex requires
-`AGENTS.md`. Expanding that repository later to Codex or both runtimes therefore
-requires a deliberate instruction-owner migration. The installer refuses to move or
-delete that policy automatically. Reconcile the managed block into `AGENTS.md`, make
-`CLAUDE.md` a reviewed `@AGENTS.md` shim when appropriate, and rebuild the adoption
-lock in a clean branch rather than allowing two owners.
+Instruction ownership is outside the installer. Existing rules, imports, and any
+transport-neutral coworker boundary remain exactly as the project currently defines
+them. The full orchestration manuals and profiles remain inert until explicitly read
+and activated.
 
-The merged instruction block does retain a small transport-neutral safety boundary
-for any future coworker run (one root, no native second control plane, status is not
-proof). The full orchestration manuals and profiles remain inert until explicitly
-read and activated.
-
-After setup, customize `templates/hooks/foundation-surface.txt` and select or adapt a
-stack rule under `templates/fitness/adapters/`. Runtime hook samples remain explicit
-manual merges because project settings may already contain unrelated policy.
+After setup, customize `.foundation-integrity/hooks/foundation-surface.txt`. If
+fitness guidance was selected, adapt the matching rule under
+`docs/foundation/fitness/adapters/`. Hook configuration is already project-scoped;
+existing differing runtime config is a preflight conflict, never a silent merge.
 
 Removal is deliberately ledger-driven rather than a destructive uninstall command:
 verify managed paths and hook hashes from `.foundation-integrity/adoption.tsv`, remove
-only unchanged recorded files/hooks, remove the two marked blocks from the instruction
-owner and `.gitignore`, then delete the lock. Modified files require an explicit
-human decision.
+only unchanged recorded files/hooks, remove the marked block from `.gitignore`, then
+delete the lock. Instruction files are absent from the ledger. Modified managed files
+require an explicit human decision.
 
 Companion tracker skills expect project-specific `docs/agents/` configuration. If it
 is absent, they report the gap instead of invoking a hidden setup workflow.
@@ -304,9 +316,9 @@ is absent, they report the gap instead of invoking a hidden setup workflow.
 ## Local and canonical state
 
 The distribution includes a root `.gitignore` and a reusable marked block that ignore
-all `.foundation/` runtime/research/plan/orchestration state, per-project
-`docs/research/` notes, and `tmp/`. Canonical records belong under `docs/adr/`,
-`docs/foundation/receipts/`, `docs/agents/`, or `CONTEXT.md`. Plugin managers install
+all `.foundation/` runtime/process state, per-project `docs/research/` notes, `tmp/`,
+and numbered personal ADR history. `docs/adr/0000-template.md` remains trackable.
+Plugin managers install
 into their own caches and do not create `docs/research/` or mutate a consumer
 repository's `.gitignore`; standalone skill installs copy only their runtime skill
 projection. Direct repo installs must merge the supplied ignore block explicitly
@@ -335,8 +347,8 @@ provenance hash paths, and the one-way source-of-truth contract.
 
 ## Advanced: optional coworker pilot
 
-The material under `templates/orchestration/` is a measured experiment, not an
-installed skill or default workflow. It requires one root controller, fresh
+The project-owned material under `.orchestration/foundation/` is a measured
+experiment, not an installed skill or default workflow. It requires one root controller, fresh
 top-level sessions, explicit role/model envelopes, non-overlapping write scopes,
 root-owned validation locks, and digest-bound evidence. Workers receive the task
 contract, not transport topology. Runtime status is never acceptance evidence.

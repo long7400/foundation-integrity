@@ -4,7 +4,8 @@ This repository uses a single context by default:
 
 - `CONTEXT.md` — the shared domain language and current system map, created only when
   there is durable vocabulary or a model decision to record.
-- `docs/adr/` — architectural decisions and their evidence.
+- `docs/adr/` — local architectural working decisions; `0000-template.md` is the
+  tracked reusable shape, while numbered personal history is ignored by default.
 - `docs/research/` — ignored, project-local research notes. Do not treat this as a
   canonical evidence store or push its contents. Promote accepted conclusions into
   an ADR, `docs/foundation/receipts/`, `CONTEXT.md`, or another explicitly durable

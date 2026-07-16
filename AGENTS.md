@@ -38,7 +38,7 @@ source of truth, lifecycle, trust boundary, or system archetype.
   downstream implications; do not request hidden chain-of-thought.
 
 Detailed receipt fields, examples, pattern probes, and proof-selection guidance stay
-in the explicit skills and `templates/`; do not duplicate them into always-loaded
+in explicit skills and project documents; do not duplicate them into always-loaded
 instructions.
 
 ## Repository invariants
@@ -61,10 +61,12 @@ instructions.
 - Runtime hooks stay proportional and dual-wired; git enforcement remains
   runtime-neutral. Default runtime posture is warn, while the explicit pre-push tier
   may block.
-- Templates are opt-in adoption material, not automatic context or setup. Copy only
-  the selected template subtree; never copy all templates as a black-box setup.
-- Runtime/process state under `.foundation/` and `tmp/` is never canonical. Promote
-  accepted decisions to `docs/`, `CONTEXT.md`, or another durable text owner.
+- `templates/` is distribution-authoring input, not a downstream layout. The adopter
+  maps selected assets to `docs/`, `.foundation-integrity/hooks/`, or
+  `.orchestration/foundation/` and never copies a top-level `templates/` directory.
+- Runtime/process state under `.foundation/` and `tmp/` is never canonical. Local ADR
+  history is ignored by default; promote only accepted decision-lossless evidence to
+  an explicitly tracked owner when the project needs one.
 - `.claude-plugin/plugin.json`, `.codex-plugin/plugin.json`, the marketplace,
   canonical skills, and both projections must stay in sync.
 - The pack obeys its own doctrine: one source of truth, explicit lifecycle, no
@@ -106,6 +108,6 @@ The always-valid boundary is small:
 - Domain/evidence layout: `docs/agents/domain.md`
 - Issue tracker: `docs/agents/issue-tracker.md`
 - Triage labels: `docs/agents/triage-labels.md`
-- Decisions: `docs/adr/`
-- Reusable consumer rule block: `templates/claude-md-block.md`
+- ADR template: `docs/adr/0000-template.md`
+- Transparent project adopter: `templates/setup/full-opt.sh`
 - Repository contracts: `tests/repo-contracts.sh`

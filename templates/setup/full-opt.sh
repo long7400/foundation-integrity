@@ -1,9 +1,10 @@
 #!/bin/sh
 # Transparent full repository adoption for Foundation Integrity.
 #
-# This installer copies inert project assets, merges two marked blocks, and may wire
-# the warn-only git pre-commit hook. It never installs plugins, changes user/global
-# runtime configuration, activates orchestration, or overwrites an unowned file.
+# This installer adopts project-owned assets at their final paths, merges the generated
+# ignore block, installs selected project-scoped runtime hooks, and may wire git hooks.
+# It never installs plugins, changes user/global runtime configuration, activates
+# orchestration, or overwrites an unowned file.
 set -eu
 
 usage() {
@@ -12,28 +13,31 @@ Usage:
   sh templates/setup/full-opt.sh --runtime codex|claude|both [options] TARGET
 
 Options:
-  --core                            Install skills, policy blocks, four project docs,
-                                    compact docs/ADR, and setup helpers only.
-  --full-opt                        Add fitness, hooks, and orchestration (default).
-  --with-fitness                    Add the optional fitness templates.
-  --with-hooks                      Add hook assets; implies fitness.
-  --with-orchestration              Add inert coworker protocol/profiles.
+  --core                            Install skills, the generated ignore block, four
+                                    project conventions, compact foundation docs, and
+                                    the local ADR template.
+  --full-opt                        Add fitness guidance, active project hooks, and
+                                    inert orchestration policy (default).
+  --with-fitness                    Add optional fitness guidance under docs/.
+  --with-hooks                      Install shared hook scripts plus project-scoped
+                                    runtime configuration for the selected runtime(s).
+  --with-orchestration              Add inert coworker policy and only the selected
+                                    runtime profile subtree.
   --dry-run                         Preview the complete effects ledger only.
-  --instruction-target AGENTS.md   Resolve an otherwise ambiguous owner explicitly.
-  --instruction-target CLAUDE.md
   --no-pre-commit                   Do not newly wire the warn-only hook. On an upgrade,
                                     an unchanged hook already owned by the adoption lock
                                     is retained; this option is not an uninstall command.
   --with-pre-push                   Also wire the explicit blocking pre-push hook.
   -h, --help                        Show this help.
 
-The target directory must already exist. Existing differing project files are
-reported as conflicts and are never overwritten. Existing managed markers without an
-adoption lock are accepted only when their block is byte-identical to this
-distribution. A pre-existing custom pre-commit hook is preserved; an explicitly
-requested pre-push conflict is a hard stop. Preflight-detected conflicts abort before
-installer-managed writes, but process interruption and concurrent target mutation are
-not transactionally rolled back.
+The target directory must already exist. AGENTS.md and CLAUDE.md are never created or
+modified; the consumer's current contents remain authoritative. Existing differing
+project files are reported as conflicts and are never overwritten. Existing
+.codex/hooks.json or .claude/settings.json files must be reconciled explicitly rather
+than black-box merged. A pre-existing custom pre-commit hook is preserved; an
+explicitly requested pre-push conflict is a hard stop. Preflight-detected conflicts
+abort before installer-managed writes, but process interruption and concurrent target
+mutation are not transactionally rolled back.
 EOF
 }
 
@@ -120,6 +124,13 @@ files_match() {
     && [ "$(file_mode "$1")" = "$(file_mode "$2")" ]
 }
 
+test_interrupt() {
+  point=$1
+  [ "${FI_TEST_INTERRUPT_AFTER:-}" = "$point" ] || return 0
+  printf '%s\n' "full-opt: test interruption at $point" >&2
+  exit 86
+}
+
 runtime=
 target=
 dry_run=0
@@ -134,7 +145,6 @@ install_orchestration=0
 pre_commit_disabled=0
 install_pre_commit=0
 install_pre_push=0
-instruction_target=
 
 set_preset() {
   requested=$1
@@ -166,7 +176,6 @@ while [ "$#" -gt 0 ]; do
       ;;
     --with-hooks)
       with_hooks=1
-      with_fitness=1
       shift
       ;;
     --with-orchestration)
@@ -177,18 +186,12 @@ while [ "$#" -gt 0 ]; do
       dry_run=1
       shift
       ;;
-    --instruction-target)
-      [ "$#" -ge 2 ] || die "--instruction-target requires AGENTS.md or CLAUDE.md"
-      instruction_target=$2
-      shift 2
-      ;;
     --no-pre-commit)
       pre_commit_disabled=1
       shift
       ;;
     --with-pre-push)
       with_hooks=1
-      with_fitness=1
       install_pre_push=1
       shift
       ;;
@@ -211,10 +214,7 @@ done
   install_orchestration=1
 }
 [ "$with_fitness" = 0 ] || install_fitness=1
-[ "$with_hooks" = 0 ] || {
-  install_hooks=1
-  install_fitness=1
-}
+[ "$with_hooks" = 0 ] || install_hooks=1
 [ "$with_orchestration" = 0 ] || install_orchestration=1
 
 if [ "$install_hooks" = 1 ] && [ "$pre_commit_disabled" = 0 ]; then
@@ -226,7 +226,6 @@ components=core
 [ "$install_orchestration" = 0 ] || components=$components,orchestration
 
 case "$runtime" in codex|claude|both) ;; *) die "--runtime codex|claude|both is required" ;; esac
-case "$instruction_target" in ""|AGENTS.md|CLAUDE.md) ;; *) die "instruction target must be AGENTS.md or CLAUDE.md" ;; esac
 [ -n "$target" ] || die "TARGET is required"
 [ -d "$target" ] || die "target directory does not exist: $target"
 
@@ -239,8 +238,18 @@ install_lock=
 install_lock_acquired=0
 install_lock_owner=
 install_lock_expected=$tmp/install-lock-owner
+migration_journal_tmp=
+adoption_pending_tmp=
 printf 'pid=%s\ntmp=%s\n' "$$" "$tmp" > "$install_lock_expected"
 cleanup() {
+  if [ -n "$migration_journal_tmp" ] && [ -f "$migration_journal_tmp" ] \
+    && [ ! -L "$migration_journal_tmp" ]; then
+    rm -f "$migration_journal_tmp"
+  fi
+  if [ -n "$adoption_pending_tmp" ] && [ -f "$adoption_pending_tmp" ] \
+    && [ ! -L "$adoption_pending_tmp" ]; then
+    rm -f "$adoption_pending_tmp"
+  fi
   if [ "$install_lock_acquired" = 1 ] && [ -n "$install_lock" ] && [ -d "$install_lock" ]; then
     if [ -n "$install_lock_owner" ] && [ -f "$install_lock_owner" ] \
       && [ ! -L "$install_lock_owner" ] \
@@ -265,6 +274,7 @@ fi
 stage=$tmp/stage
 manifest=$tmp/manifest.tsv
 managed_skill_roots=$tmp/managed-skill-roots
+tab=$(printf '\t')
 mkdir -p "$stage"
 : > "$manifest"
 : > "$managed_skill_roots"
@@ -359,67 +369,83 @@ awk -v description="$tracker_description" -v command="$tracker_command" '
 ' "$source_root/templates/setup/docs-agents-issue-tracker.md" \
   > "$stage/docs/agents/issue-tracker.md"
 
-# Copy only the load-bearing, explicitly adopted template surfaces. The marked
-# instruction and ignore source files are merged below and are not duplicated in the
-# consumer repository.
-stage_tree "$source_root/templates/adr" templates/adr
-stage_tree "$source_root/templates/docs" templates/docs
-[ "$install_fitness" = 0 ] || stage_tree "$source_root/templates/fitness" templates/fitness
-[ "$install_hooks" = 0 ] || stage_tree "$source_root/templates/hooks" templates/hooks
-[ "$install_orchestration" = 0 ] \
-  || stage_tree "$source_root/templates/orchestration" templates/orchestration
-stage_file "$source_root/templates/setup/check-credential-permissions.sh" templates/setup/check-credential-permissions.sh
-stage_file "$source_root/templates/setup/resolve-instruction-target.sh" templates/setup/resolve-instruction-target.sh
+# Adopt project material at its final owner; no top-level templates/ tree is copied.
+stage_file "$source_root/docs/adr/0000-template.md" docs/adr/0000-template.md
+stage_file "$source_root/docs/foundation/foundation-audit.md" docs/foundation/foundation-audit.md
+stage_file "$source_root/docs/foundation/foundation-pattern-language.md" docs/foundation/foundation-pattern-language.md
+stage_file "$source_root/docs/foundation/why-foundation-integrity.md" docs/foundation/why-foundation-integrity.md
 
-resolve_rc=0
-resolved=
-if [ -n "$instruction_target" ]; then
-  resolved=$instruction_target
-else
-  set +e
-  resolved=$(sh "$source_root/templates/setup/resolve-instruction-target.sh" "$target")
-  resolve_rc=$?
-  set -e
-  case "$resolve_rc" in
-    0) ;;
-    3)
-      case "$runtime" in
-        codex|both) resolved=AGENTS.md ;;
-        claude) resolved=CLAUDE.md ;;
-      esac
+[ "$install_fitness" = 0 ] \
+  || stage_tree "$source_root/templates/fitness" docs/foundation/fitness
+
+if [ "$install_hooks" = 1 ]; then
+  stage_file "$source_root/templates/hooks/README.md" docs/foundation/hooks.md
+  stage_file "$source_root/templates/hooks/review-receipt.md" docs/foundation/review-receipt.md
+  stage_file "$source_root/templates/hooks/foundation-surface.txt" .foundation-integrity/hooks/foundation-surface.txt
+  stage_tree "$source_root/templates/hooks/scripts" .foundation-integrity/hooks
+  stage_tree "$source_root/templates/hooks/git" .foundation-integrity/hooks/git
+  find "$stage/.foundation-integrity/hooks" -type f -name '*.sh' -exec chmod 755 {} \;
+  find "$stage/.foundation-integrity/hooks/git" -type f -exec chmod 755 {} \;
+  case "$runtime" in
+    codex)
+      stage_file "$source_root/templates/hooks/codex-hooks.json" .codex/hooks.json
       ;;
-    2) die "AGENTS.md and CLAUDE.md have ambiguous ownership; pass --instruction-target after reviewing both" ;;
-    *) die "instruction owner resolver failed" ;;
+    claude)
+      stage_file "$source_root/templates/hooks/claude-settings.json" .claude/settings.json
+      ;;
+    both)
+      stage_file "$source_root/templates/hooks/codex-hooks.json" .codex/hooks.json
+      stage_file "$source_root/templates/hooks/claude-settings.json" .claude/settings.json
+      ;;
   esac
 fi
 
-case "$runtime" in
-  codex|both)
-    [ "$resolved" = AGENTS.md ] || die "Codex requires the merged block in AGENTS.md; CLAUDE.md alone is not a Codex instruction owner"
-    ;;
-esac
-
-claude_is_agents_shim() {
-  [ -f "$target/CLAUDE.md" ] || return 1
-  awk '
-    /^[[:space:]]*$/ { next }
-    /^[[:space:]]*# CLAUDE\.md[[:space:]]*$/ { next }
-    /^[[:space:]]*@(\.\/)?AGENTS\.md[[:space:]]*$/ { imports++; next }
-    { substantive = 1 }
-    END { exit !(imports == 1 && !substantive) }
-  ' "$target/CLAUDE.md"
+stage_orchestration_contract() {
+  selected_runtime=$1
+  destination=$2
+  mkdir -p "$stage/$(dirname -- "$destination")"
+  awk -F '\t' -v OFS='\t' -v selected_runtime="$selected_runtime" '
+    $1 == "setting" && $2 == "runtime" { $3 = selected_runtime }
+    $1 == "setting" && $2 == "role_model_matrix" { $3 = ".orchestration/foundation/role-model-matrix.tsv" }
+    { print }
+  ' "$source_root/templates/orchestration/run-contract.tsv" > "$stage/$destination"
 }
 
-case "$runtime" in
-  claude|both)
-    if [ "$resolved" = AGENTS.md ]; then
-      if [ -e "$target/CLAUDE.md" ] && ! claude_is_agents_shim; then
-        die "Claude would not load the chosen AGENTS.md owner because CLAUDE.md is substantive; reconcile it manually first"
-      fi
-      printf '# CLAUDE.md\n\n@AGENTS.md\n' > "$stage/CLAUDE.md"
-    fi
-    ;;
-esac
+if [ "$install_orchestration" = 1 ]; then
+  for shared in README.md coworker-protocol.md model-role-policy.md pilot-run-receipt.md \
+    role-model-matrix.tsv weak-foundation-benchmark.md; do
+    stage_file "$source_root/templates/orchestration/$shared" ".orchestration/foundation/$shared"
+  done
+  stage_tree "$source_root/templates/orchestration/scripts" .orchestration/foundation/scripts
+  case "$runtime" in
+    codex)
+      stage_file "$source_root/templates/orchestration/runtime/codex.md" \
+        .orchestration/foundation/runtime/codex.md
+      stage_tree "$source_root/templates/orchestration/profiles/codex" \
+        .orchestration/foundation/profiles/codex
+      stage_orchestration_contract codex .orchestration/foundation/run-contract.tsv
+      ;;
+    claude)
+      stage_file "$source_root/templates/orchestration/runtime/claude.md" \
+        .orchestration/foundation/runtime/claude.md
+      stage_tree "$source_root/templates/orchestration/profiles/claude" \
+        .orchestration/foundation/profiles/claude
+      stage_orchestration_contract claude .orchestration/foundation/run-contract.tsv
+      ;;
+    both)
+      stage_file "$source_root/templates/orchestration/runtime/codex.md" \
+        .orchestration/foundation/runtime/codex.md
+      stage_file "$source_root/templates/orchestration/runtime/claude.md" \
+        .orchestration/foundation/runtime/claude.md
+      stage_tree "$source_root/templates/orchestration/profiles/codex" \
+        .orchestration/foundation/profiles/codex
+      stage_tree "$source_root/templates/orchestration/profiles/claude" \
+        .orchestration/foundation/profiles/claude
+      stage_orchestration_contract codex .orchestration/foundation/run-contract.codex.tsv
+      stage_orchestration_contract claude .orchestration/foundation/run-contract.claude.tsv
+      ;;
+  esac
+fi
 
 marker_count() {
   awk -v marker="$2" '$0 == marker { count++ } END { print count + 0 }' "$1"
@@ -478,32 +504,6 @@ merge_marked_block() {
   ' "$current" > "$output"
 }
 
-case "$resolved" in
-  AGENTS.md) other_instruction=CLAUDE.md ;;
-  CLAUDE.md) other_instruction=AGENTS.md ;;
-esac
-other_instruction_file=$target/$other_instruction
-if [ -L "$other_instruction_file" ]; then
-  die "cannot prove a single instruction owner while the non-selected $other_instruction is a symlink"
-elif [ -e "$other_instruction_file" ]; then
-  [ -f "$other_instruction_file" ] \
-    || die "non-selected instruction path is not a regular file: $other_instruction_file"
-  other_begins=$(marker_count "$other_instruction_file" '<!-- BEGIN foundation-integrity -->')
-  other_ends=$(marker_count "$other_instruction_file" '<!-- END foundation-integrity -->')
-  if [ "$other_begins" -ne 0 ] || [ "$other_ends" -ne 0 ]; then
-    die "non-selected $other_instruction already contains Foundation Integrity markers; reconcile to one instruction owner before adoption"
-  fi
-fi
-
-instruction_file=$target/$resolved
-reject_hardlinked_file "$instruction_file"
-instruction_preflight_state=$tmp/instruction-preflight-state
-record_path_state "$instruction_file" "$instruction_preflight_state"
-instruction_desired=$tmp/instruction.md
-merge_marked_block "$instruction_file" "$source_root/templates/claude-md-block.md" \
-  '<!-- BEGIN foundation-integrity -->' '<!-- END foundation-integrity -->' \
-  "$instruction_desired"
-
 ignore_block=$tmp/ignore-block
 awk '
   $0 == "# BEGIN foundation-integrity generated state" { inside = 1 }
@@ -534,9 +534,18 @@ adoption_relative=.foundation-integrity/adoption.tsv
 adoption_file=$target/$adoption_relative
 adoption_preflight_state=$tmp/adoption-preflight-state
 old_adoption=
+adoption_schema=
+v2_pending_journal_hash=
+v2_pending_plan_hash=
+pending_migration_plan=$tmp/pending-migration-plan.tsv
+: > "$pending_migration_plan"
+migration_journal_relative=.foundation/migrations/foundation-integrity-v2-v3.tsv
+migration_journal=$target/$migration_journal_relative
 managed_path_allowed() {
   case "$1" in
-    .agents/skills/*|.claude/skills/*|docs/agents/*|templates/adr/*|templates/docs/*|templates/fitness/*|templates/hooks/*|templates/orchestration/*|templates/setup/check-credential-permissions.sh|templates/setup/resolve-instruction-target.sh|CLAUDE.md) return 0 ;;
+    .agents/skills/*|.claude/skills/*|docs/agents/*|docs/adr/0000-template.md|docs/foundation/*|.foundation-integrity/hooks/*|.codex/hooks.json|.claude/settings.json|.orchestration/foundation/*) return 0 ;;
+    templates/adr/*|templates/docs/*|templates/fitness/*|templates/hooks/*|templates/orchestration/*|templates/setup/check-credential-permissions.sh|templates/setup/resolve-instruction-target.sh|CLAUDE.md) return 0 ;;
+    .git/hooks/pre-commit|.git/hooks/pre-push) return 0 ;;
     *) return 1 ;;
   esac
 }
@@ -545,10 +554,34 @@ reject_hardlinked_file "$adoption_file"
 record_path_state "$adoption_file" "$adoption_preflight_state"
 if [ -e "$adoption_file" ]; then
   [ -f "$adoption_file" ] || die "adoption lock is not a regular file: $adoption_file"
-  awk -F '\t' '
-    NR == 1 { if ($0 != "# foundation-integrity-adoption:v2") exit 1; next }
+  adoption_schema=$(sed -n '1s/^# foundation-integrity-adoption://p' "$adoption_file")
+  case "$adoption_schema" in
+    v2|v3) ;;
+    *) die "adoption lock has an unsupported schema: $adoption_file" ;;
+  esac
+  awk -F '\t' -v schema="$adoption_schema" '
+    NR == 1 { next }
     /^#/ || NF == 0 { next }
-    $1 == "setting" { if (NF != 3 || $2 == "" || $3 == "" || seen[$1 FS $2]++) exit 1; next }
+    $1 == "setting" {
+      if (NF != 3 || $2 == "" || $3 == "" || seen[$1 FS $2]++) exit 1
+      if ($2 == "distribution-version" || $2 == "source-repository" \
+        || $2 == "source-ref" || $2 == "source-revision" \
+        || $2 == "source-tree-state" || $2 == "content-sha256" \
+        || $2 == "payload-sha256" || $2 == "runtime" \
+        || $2 == "components" || $2 == "ignore-block-sha256") next
+      if (schema == "v2" && ($2 == "instruction-target" \
+        || $2 == "instruction-block-sha256" \
+        || $2 == "pending-v3-journal-sha256" \
+        || $2 == "pending-v3-plan-sha256")) next
+      exit 1
+    }
+    $1 == "pending-add" || $1 == "pending-remove" {
+      if (schema != "v2" || NF != 4 || length($2) != 64 || $2 !~ /^[0-9A-Fa-f]+$/) exit 1
+      if ($3 !~ /^[0-7][0-7][0-7]$/ || $4 == "") exit 1
+      if ($4 ~ /^\// || $4 ~ /(^|\/)\.\.(\/|$)/ || $4 ~ /\/\//) exit 1
+      if (pending_path[$4]++) exit 1
+      next
+    }
     $1 == "file" || $1 == "hook" || $1 == "external" {
       if (NF != 3 || length($2) != 64 || $2 !~ /^[0-9A-Fa-f]+$/ || $3 == "") exit 1
       if ($3 ~ /^\// || $3 ~ /(^|\/)\.\.(\/|$)/ || $3 ~ /\/\//) exit 1
@@ -569,7 +602,57 @@ if [ -e "$adoption_file" ]; then
       for (path in modes) if (modes[path] != 1 || managed[path] != 1) exit 1
     }
   ' "$adoption_file" || die "adoption lock is malformed or has duplicate records: $adoption_file"
-  old_adoption=$adoption_file
+  if [ "$adoption_schema" = v2 ]; then
+    v2_pending_journal_hash=$(awk -F '\t' \
+      '$1 == "setting" && $2 == "pending-v3-journal-sha256" { print $3; exit }' \
+      "$adoption_file")
+    v2_pending_plan_hash=$(awk -F '\t' \
+      '$1 == "setting" && $2 == "pending-v3-plan-sha256" { print $3; exit }' \
+      "$adoption_file")
+    if [ -n "$v2_pending_journal_hash" ]; then
+      case "$v2_pending_journal_hash" in
+        *[!0-9A-Fa-f]*) die "adoption lock contains a non-hex pending migration binding" ;;
+      esac
+      [ "${#v2_pending_journal_hash}" = 64 ] \
+        || die "adoption lock contains an invalid pending migration binding length"
+      case "$v2_pending_plan_hash" in
+        *[!0-9A-Fa-f]*) die "adoption lock contains a non-hex pending plan binding" ;;
+      esac
+      [ "${#v2_pending_plan_hash}" = 64 ] \
+        || die "adoption lock contains an invalid pending plan binding length"
+      awk -F '\t' \
+        '$1 == "setting" && ($2 == "pending-v3-journal-sha256" || $2 == "pending-v3-plan-sha256") { next } \
+         $1 == "pending-add" || $1 == "pending-remove" { next } { print }' \
+        "$adoption_file" > "$tmp/old-adoption.tsv"
+      awk -F '\t' -v OFS='\t' \
+        '$1 == "pending-add" { $1 = "add"; print } \
+         $1 == "pending-remove" { $1 = "remove"; print }' \
+        "$adoption_file" | LC_ALL=C sort > "$pending_migration_plan"
+      while IFS="$tab" read -r pending_operation pending_hash pending_mode pending_path; do
+        [ -n "$pending_path" ] || continue
+        managed_path_allowed "$pending_path" \
+          || die "adoption lock pending plan contains an out-of-scope path: $pending_path"
+      done < "$pending_migration_plan"
+      [ "$(sha256_file "$pending_migration_plan")" = "$v2_pending_plan_hash" ] \
+        || die "adoption lock pending operation plan does not match its binding"
+    else
+      [ -z "$v2_pending_plan_hash" ] \
+        || die "adoption lock contains a pending plan without a pending journal binding"
+      if awk -F '\t' '$1 == "pending-add" || $1 == "pending-remove" { found = 1 } END { exit !found }' \
+        "$adoption_file"; then
+        die "adoption lock contains pending operations without a pending journal binding"
+      fi
+      cp "$adoption_file" "$tmp/old-adoption.tsv"
+    fi
+  else
+    if awk -F '\t' '$1 == "setting" && ($2 == "pending-v3-journal-sha256" || $2 == "pending-v3-plan-sha256") \
+      || $1 == "pending-add" || $1 == "pending-remove" { found = 1 } END { exit !found }' \
+      "$adoption_file"; then
+      die "v3 adoption lock contains a pending migration binding"
+    fi
+    cp "$adoption_file" "$tmp/old-adoption.tsv"
+  fi
+  old_adoption=$tmp/old-adoption.tsv
   awk -F '\t' '$1 == "file" { print $3 }' "$old_adoption" > "$tmp/old-managed-paths"
   while IFS= read -r old_path; do
     managed_path_allowed "$old_path" || die "adoption lock contains an out-of-scope managed path: $old_path"
@@ -601,27 +684,39 @@ if [ -e "$adoption_file" ]; then
   old_content_sha256=$(old_setting content-sha256)
   old_runtime=$(old_setting runtime)
   old_components=$(old_setting components)
-  old_instruction_target=$(old_setting instruction-target)
-  old_instruction_hash=$(old_setting instruction-block-sha256)
   old_ignore_hash=$(old_setting ignore-block-sha256)
+  old_instruction_target=
+  old_instruction_hash=
+  if [ "$adoption_schema" = v2 ]; then
+    old_instruction_target=$(old_setting instruction-target)
+    old_instruction_hash=$(old_setting instruction-block-sha256)
+  fi
   for required_value in "$old_payload_expected" "$old_distribution_version" \
     "$old_source_repository" "$old_source_ref" "$old_source_revision" "$old_source_tree_state" \
-    "$old_content_sha256" "$old_runtime" "$old_components" "$old_instruction_target" \
-    "$old_instruction_hash" "$old_ignore_hash"; do
+    "$old_content_sha256" "$old_runtime" "$old_components" "$old_ignore_hash"; do
     [ -n "$required_value" ] || die "adoption lock is missing a payload-binding setting"
   done
+  if [ "$adoption_schema" = v2 ]; then
+    [ -n "$old_instruction_target" ] && [ -n "$old_instruction_hash" ] \
+      || die "adoption lock is missing its legacy instruction binding"
+  fi
   case "$old_payload_expected$old_content_sha256$old_instruction_hash$old_ignore_hash" in
     *[!0-9A-Fa-f]*) die "adoption lock contains a non-hex payload binding" ;;
   esac
   [ "${#old_payload_expected}" = 64 ] && [ "${#old_content_sha256}" = 64 ] \
-    && [ "${#old_instruction_hash}" = 64 ] \
     && [ "${#old_ignore_hash}" = 64 ] \
     || die "adoption lock contains an invalid payload-binding length"
+  if [ "$adoption_schema" = v2 ]; then
+    [ "${#old_instruction_hash}" = 64 ] \
+      || die "adoption lock contains an invalid legacy instruction binding length"
+  fi
   {
     printf 'runtime\t%s\n' "$old_runtime"
     printf 'components\t%s\n' "$old_components"
     awk -F '\t' '$1 == "file" || $1 == "hook" || $1 == "external" || $1 == "mode" { print }' "$old_adoption"
-    printf 'instruction-block\t%s\t%s\n' "$old_instruction_hash" "$old_instruction_target"
+    if [ "$adoption_schema" = v2 ]; then
+      printf 'instruction-block\t%s\t%s\n' "$old_instruction_hash" "$old_instruction_target"
+    fi
     printf 'ignore-block\t%s\t.gitignore\n' "$old_ignore_hash"
   } > "$tmp/old-content-records.tsv"
   old_content_actual=$(LC_ALL=C sort "$tmp/old-content-records.tsv" | sha256_stream)
@@ -640,29 +735,16 @@ if [ -e "$adoption_file" ]; then
   [ "$old_payload_actual" = "$old_payload_expected" ] \
     || die "adoption lock payload digest does not match its managed records"
 
-  [ "$old_instruction_target" = "$resolved" ] \
-    || die "instruction owner changed from $old_instruction_target to $resolved; reconcile and remove the previous managed block explicitly before re-adopting"
-
-  extract_existing_block "$instruction_file" '<!-- BEGIN foundation-integrity -->' \
-    '<!-- END foundation-integrity -->' "$tmp/current-instruction-block" \
-    || die "previous managed instruction block is missing or malformed"
-  [ "$(sha256_file "$tmp/current-instruction-block")" = "$old_instruction_hash" ] \
-    || die "previous managed instruction block was edited; reconcile it explicitly before upgrade"
   extract_existing_block "$ignore_file" '# BEGIN foundation-integrity generated state' \
     '# END foundation-integrity generated state' "$tmp/current-ignore-block" \
     || die "previous managed ignore block is missing or malformed"
-  [ "$(sha256_file "$tmp/current-ignore-block")" = "$old_ignore_hash" ] \
-    || die "previous managed ignore block was edited; reconcile it explicitly before upgrade"
-else
-  if [ -e "$instruction_file" ] \
-    && { [ "$(marker_count "$instruction_file" '<!-- BEGIN foundation-integrity -->')" -ne 0 ] \
-      || [ "$(marker_count "$instruction_file" '<!-- END foundation-integrity -->')" -ne 0 ]; }; then
-    extract_existing_block "$instruction_file" '<!-- BEGIN foundation-integrity -->' \
-      '<!-- END foundation-integrity -->' "$tmp/unowned-instruction-block" \
-      || die "pre-existing Foundation Integrity instruction markers are malformed and have no adoption lock"
-    cmp -s "$tmp/unowned-instruction-block" "$source_root/templates/claude-md-block.md" \
-      || die "pre-existing Foundation Integrity instruction block differs and has no adoption lock; reconcile it explicitly before adoption"
+  current_ignore_hash=$(sha256_file "$tmp/current-ignore-block")
+  if [ "$current_ignore_hash" != "$old_ignore_hash" ]; then
+    [ "$adoption_schema" = v2 ] && [ -n "$v2_pending_journal_hash" ] \
+      && [ "$current_ignore_hash" = "$(sha256_file "$ignore_block")" ] \
+      || die "previous managed ignore block was edited; reconcile it explicitly before upgrade"
   fi
+else
   if [ -e "$ignore_file" ] \
     && { [ "$(marker_count "$ignore_file" '# BEGIN foundation-integrity generated state')" -ne 0 ] \
       || [ "$(marker_count "$ignore_file" '# END foundation-integrity generated state')" -ne 0 ]; }; then
@@ -672,6 +754,121 @@ else
     cmp -s "$tmp/unowned-ignore-block" "$ignore_block" \
       || die "pre-existing Foundation Integrity ignore block differs and has no adoption lock; reconcile it explicitly before adoption"
   fi
+fi
+
+migration_journal_preflight_state=$tmp/migration-journal-preflight-state
+migration_recovery=0
+migration_journal_cleanup=0
+migration_journal_expected_hash=
+reject_symlink_parent "$migration_journal"
+[ ! -L "$migration_journal" ] \
+  || die "refusing a symlinked migration journal: $migration_journal"
+reject_hardlinked_file "$migration_journal"
+record_path_state "$migration_journal" "$migration_journal_preflight_state"
+if [ -e "$migration_journal" ]; then
+  [ -f "$migration_journal" ] \
+    || die "migration journal is not a regular file: $migration_journal"
+  awk -F '\t' '
+    NR == 1 {
+      if ($0 != "# foundation-integrity-v2-v3-migration:v1") exit 1
+      next
+    }
+    $1 == "setting" {
+      if (NF != 3 || $2 == "" || $3 == "" || seen_setting[$2]++) exit 1
+      if ($2 != "old-adoption-sha256" && $2 != "desired-adoption-sha256" \
+        && $2 != "payload-sha256" && $2 != "plan-sha256" \
+        && $2 != "instruction-disposition" && $2 != "instruction-target" \
+        && $2 != "instruction-block-sha256") exit 1
+      settings[$2] = $3
+      next
+    }
+    $1 == "add" || $1 == "remove" {
+      if (NF != 4 || length($2) != 64 || $2 !~ /^[0-9A-Fa-f]+$/) exit 1
+      if ($3 !~ /^[0-7][0-7][0-7]$/ || $4 == "") exit 1
+      if ($4 ~ /^\// || $4 ~ /(^|\/)\.\.(\/|$)/ || $4 ~ /\/\//) exit 1
+      if (seen_path[$4]++) exit 1
+      next
+    }
+    /^#/ || NF == 0 { next }
+    { exit 1 }
+    END {
+      required["old-adoption-sha256"] = 1
+      required["desired-adoption-sha256"] = 1
+      required["payload-sha256"] = 1
+      required["plan-sha256"] = 1
+      required["instruction-disposition"] = 1
+      required["instruction-target"] = 1
+      required["instruction-block-sha256"] = 1
+      for (key in required) if (!(key in settings)) exit 1
+    }
+  ' "$migration_journal" \
+    || die "migration journal is malformed: $migration_journal"
+  journal_setting() {
+    awk -F '\t' -v key="$1" \
+      '$1 == "setting" && $2 == key { print $3; exit }' "$migration_journal"
+  }
+  journal_old_adoption_hash=$(journal_setting old-adoption-sha256)
+  journal_desired_adoption_hash=$(journal_setting desired-adoption-sha256)
+  journal_payload_hash=$(journal_setting payload-sha256)
+  journal_plan_hash=$(journal_setting plan-sha256)
+  journal_instruction_disposition=$(journal_setting instruction-disposition)
+  journal_instruction_target=$(journal_setting instruction-target)
+  journal_instruction_hash=$(journal_setting instruction-block-sha256)
+  case "$journal_old_adoption_hash$journal_desired_adoption_hash$journal_payload_hash$journal_plan_hash$journal_instruction_hash" in
+    *[!0-9A-Fa-f]*) die "migration journal contains a non-hex binding" ;;
+  esac
+  [ "${#journal_old_adoption_hash}" = 64 ] \
+    && [ "${#journal_desired_adoption_hash}" = 64 ] \
+    && [ "${#journal_payload_hash}" = 64 ] \
+    && [ "${#journal_plan_hash}" = 64 ] \
+    && [ "${#journal_instruction_hash}" = 64 ] \
+    || die "migration journal contains an invalid binding length"
+  journal_operations=$tmp/migration-journal-operations.tsv
+  awk -F '\t' '$1 == "add" || $1 == "remove" { print }' "$migration_journal" \
+    | LC_ALL=C sort > "$journal_operations"
+  while IFS="$tab" read -r operation operation_hash operation_mode operation_path; do
+    [ -n "$operation_path" ] || continue
+    managed_path_allowed "$operation_path" \
+      || die "migration journal contains an out-of-scope path: $operation_path"
+  done < "$journal_operations"
+  [ "$(sha256_file "$journal_operations")" = "$journal_plan_hash" ] \
+    || die "migration journal operation digest does not match its records"
+  if [ "$adoption_schema" = v2 ] && [ -n "$v2_pending_journal_hash" ]; then
+    [ "$journal_plan_hash" = "$v2_pending_plan_hash" ] \
+      || die "migration journal plan is not bound by the v2 adoption lock"
+    cmp -s "$journal_operations" "$pending_migration_plan" \
+      || die "migration journal operations do not match the v2 adoption plan"
+  fi
+  [ "$journal_instruction_disposition" = preserve-and-transfer-to-project ] \
+    || die "migration journal has an unsupported instruction disposition"
+  case "$journal_instruction_target" in AGENTS.md|CLAUDE.md) ;; *)
+    die "migration journal has an invalid instruction target"
+  esac
+  migration_journal_expected_hash=$(sha256_file "$migration_journal")
+  case "$adoption_schema" in
+    v2)
+      [ -n "$v2_pending_journal_hash" ] \
+        || die "migration journal is not bound by the current v2 adoption lock"
+      [ "$migration_journal_expected_hash" = "$v2_pending_journal_hash" ] \
+        || die "migration journal does not match the v2 adoption binding"
+      [ "$journal_old_adoption_hash" = "$(sha256_file "$old_adoption")" ] \
+        || die "migration journal does not bind the pre-migration v2 adoption lock"
+      [ "$journal_instruction_target" = "$old_instruction_target" ] \
+        && [ "$journal_instruction_hash" = "$old_instruction_hash" ] \
+        || die "migration journal does not bind the v2 instruction disposition"
+      migration_recovery=1
+      ;;
+    v3)
+      [ "$journal_desired_adoption_hash" = "$(sha256_file "$adoption_file")" ] \
+        || die "completed migration journal does not bind the current v3 adoption lock"
+      migration_journal_cleanup=1
+      ;;
+    *) die "migration journal exists without a supported adoption lock" ;;
+  esac
+fi
+if [ "$adoption_schema" = v2 ] && [ -n "$v2_pending_journal_hash" ] \
+  && [ ! -e "$migration_journal" ]; then
+  die "v2 adoption lock has a pending migration binding but its journal is missing"
 fi
 
 old_managed_hash() {
@@ -730,6 +927,28 @@ identical_path_is_owned() {
   [ -n "$(old_managed_hash file "$relative")" ]
 }
 
+pending_plan_add_is_owned() {
+  relative=$1
+  staged=$2
+  [ "$migration_recovery" = 1 ] || return 1
+  journal_hash=$(awk -F '\t' -v relative="$relative" \
+    '$1 == "add" && $4 == relative { print $2; exit }' "$pending_migration_plan")
+  journal_mode=$(awk -F '\t' -v relative="$relative" \
+    '$1 == "add" && $4 == relative { print $3; exit }' "$pending_migration_plan")
+  [ -n "$journal_hash" ] && [ -n "$journal_mode" ] \
+    && [ "$(sha256_file "$staged")" = "$journal_hash" ] \
+    && [ "$(file_mode "$staged")" = "$journal_mode" ]
+}
+
+pending_plan_has_add() {
+  relative=$1
+  [ "$migration_recovery" = 1 ] || return 1
+  awk -F '\t' -v relative="$relative" '
+    $1 == "add" && $4 == relative { found = 1; exit }
+    END { exit !found }
+  ' "$pending_migration_plan"
+}
+
 conflicts=0
 find "$stage" -type f -print | sort > "$tmp/staged-files"
 while IFS= read -r staged; do
@@ -742,7 +961,17 @@ while IFS= read -r staged; do
   elif [ ! -e "$destination" ]; then
     printf 'add\t%s\n' "$relative" >> "$manifest"
   elif files_match "$staged" "$destination"; then
-    if identical_path_is_owned "$relative"; then
+    if pending_plan_add_is_owned "$relative" "$staged"; then
+      printf 'unchanged\t%s\n' "$relative" >> "$manifest"
+    elif [ "$adoption_schema" = v2 ] && [ -z "$(old_managed_hash file "$relative")" ] \
+      && [ "$relative" != .gitignore ] \
+      && [ "$relative" != .foundation-integrity/adoption.tsv ]; then
+      # A v2-to-v3 retry cannot distinguish a file left by an interrupted v3
+      # migration from an identical consumer-owned file. Refuse to guess; keep
+      # the v2 ledger authoritative until the owner reconciles the path.
+      printf 'conflict\t%s\n' "$relative" >> "$manifest"
+      conflicts=$((conflicts + 1))
+    elif identical_path_is_owned "$relative"; then
       printf 'unchanged\t%s\n' "$relative" >> "$manifest"
     else
       printf 'external-identical\t%s\n' "$relative" >> "$manifest"
@@ -764,6 +993,12 @@ if [ -n "$old_adoption" ]; then
   awk -F '\t' '$1 == "file" { print $3 }' "$old_adoption" > "$tmp/old-managed-paths"
   while IFS= read -r relative; do
     [ -f "$stage/$relative" ] && continue
+    # Instruction files are project-owned in v3. Preserve any v2-managed CLAUDE.md
+    # byte-for-byte and transfer its ownership to the project; never remove or
+    # rewrite a live instruction path during migration.
+    if [ "$relative" = CLAUDE.md ]; then
+      continue
+    fi
     destination=$target/$relative
     reject_symlink_parent "$destination"
     if [ -L "$destination" ]; then
@@ -843,12 +1078,12 @@ desired_action() {
   fi
 }
 
-instruction_action=$(desired_action "$instruction_file" "$instruction_desired")
 ignore_action=$(desired_action "$ignore_file" "$ignore_desired")
 
-hook_mode=sample-only
+hook_mode=not-selected
+[ "$install_hooks" = 0 ] || hook_mode=project-runtime
 pre_commit_action=disabled
-pre_push_action=sample-only
+pre_push_action=not-installed
 git_hooks_dir=
 old_pre_commit_hash=$(old_managed_hash hook .git/hooks/pre-commit)
 old_pre_push_hash=$(old_managed_hash hook .git/hooks/pre-push)
@@ -868,11 +1103,15 @@ if [ "$install_pre_commit" = 1 ] || [ "$install_pre_push" = 1 ] \
     git_hooks_dir=$target/.git/hooks
     hook_mode=normal-git-dir
     if [ "$install_pre_commit" = 1 ]; then
-      if [ -L "$git_hooks_dir/pre-commit" ]; then
-        pre_commit_action=preserved-existing-hook
-      elif [ ! -e "$git_hooks_dir/pre-commit" ]; then
+      if [ ! -e "$git_hooks_dir/pre-commit" ] && [ ! -L "$git_hooks_dir/pre-commit" ]; then
         pre_commit_action=add-warn-only
-      elif files_match "$stage/templates/hooks/git/pre-commit" "$git_hooks_dir/pre-commit"; then
+      elif pending_plan_has_add .git/hooks/pre-commit; then
+        files_match "$stage/.foundation-integrity/hooks/git/pre-commit" "$git_hooks_dir/pre-commit" \
+          || die "v2-ledger-proven pre-commit hook changed before recovery"
+        pre_commit_action=unchanged
+      elif [ -L "$git_hooks_dir/pre-commit" ]; then
+        pre_commit_action=preserved-existing-hook
+      elif files_match "$stage/.foundation-integrity/hooks/git/pre-commit" "$git_hooks_dir/pre-commit"; then
         if [ -n "$old_pre_commit_hash" ]; then
           pre_commit_action=unchanged
         else
@@ -896,11 +1135,15 @@ if [ "$install_pre_commit" = 1 ] || [ "$install_pre_push" = 1 ] \
       pre_commit_action=preserved-existing-hook
     fi
     if [ "$install_pre_push" = 1 ]; then
-      if [ -L "$git_hooks_dir/pre-push" ]; then
-        die "existing pre-push hook is a symlink; refusing to replace or claim ownership"
-      elif [ ! -e "$git_hooks_dir/pre-push" ]; then
+      if [ ! -e "$git_hooks_dir/pre-push" ] && [ ! -L "$git_hooks_dir/pre-push" ]; then
         pre_push_action=add-blocking
-      elif files_match "$stage/templates/hooks/git/pre-push" "$git_hooks_dir/pre-push"; then
+      elif pending_plan_has_add .git/hooks/pre-push; then
+        files_match "$stage/.foundation-integrity/hooks/git/pre-push" "$git_hooks_dir/pre-push" \
+          || die "v2-ledger-proven pre-push hook changed before recovery"
+        pre_push_action=unchanged
+      elif [ -L "$git_hooks_dir/pre-push" ]; then
+        die "existing pre-push hook is a symlink; refusing to replace or claim ownership"
+      elif files_match "$stage/.foundation-integrity/hooks/git/pre-push" "$git_hooks_dir/pre-push"; then
         if [ -n "$old_pre_push_hash" ]; then
           pre_push_action=unchanged
         else
@@ -926,6 +1169,56 @@ if [ "$install_pre_commit" = 1 ] || [ "$install_pre_push" = 1 ] \
   fi
 fi
 
+migration_plan_hash=
+if [ "$adoption_schema" = v2 ]; then
+  migration_plan=$tmp/migration-plan.tsv
+  : > "$migration_plan"
+  while IFS= read -r staged; do
+    relative=${staged#"$stage"/}
+    action=$(awk -F '\t' -v relative="$relative" '$2 == relative { print $1; exit }' "$manifest")
+    if [ "$action" = add ] || pending_plan_add_is_owned "$relative" "$staged"; then
+      printf 'add\t%s\t%s\t%s\n' \
+        "$(sha256_file "$staged")" "$(file_mode "$staged")" "$relative" >> "$migration_plan"
+    fi
+  done < "$tmp/staged-files"
+  while IFS= read -r relative; do
+    [ "$relative" = CLAUDE.md ] && continue
+    [ -f "$stage/$relative" ] && continue
+    printf 'remove\t%s\t%s\t%s\n' \
+      "$(old_managed_hash file "$relative")" "$(old_managed_mode "$relative")" "$relative" >> "$migration_plan"
+  done < "$tmp/old-managed-paths"
+  if [ -n "$old_pre_commit_hash" ] && [ "$install_hooks" = 0 ]; then
+    printf 'remove\t%s\t%s\t.git/hooks/pre-commit\n' \
+      "$old_pre_commit_hash" "$(old_managed_mode .git/hooks/pre-commit)" >> "$migration_plan"
+  fi
+  if [ -n "$old_pre_push_hash" ] && [ "$install_hooks" = 0 ]; then
+    printf 'remove\t%s\t%s\t.git/hooks/pre-push\n' \
+      "$old_pre_push_hash" "$(old_managed_mode .git/hooks/pre-push)" >> "$migration_plan"
+  fi
+  case "$pre_commit_action" in
+    add-warn-only|update-managed|unchanged)
+      if [ "$pre_commit_action" != unchanged ] || pending_plan_has_add .git/hooks/pre-commit; then
+        printf 'add\t%s\t755\t.git/hooks/pre-commit\n' \
+          "$(sha256_file "$stage/.foundation-integrity/hooks/git/pre-commit")" >> "$migration_plan"
+      fi
+      ;;
+  esac
+  case "$pre_push_action" in
+    add-blocking|update-managed|unchanged)
+      if [ "$pre_push_action" != unchanged ] || pending_plan_has_add .git/hooks/pre-push; then
+        printf 'add\t%s\t755\t.git/hooks/pre-push\n' \
+          "$(sha256_file "$stage/.foundation-integrity/hooks/git/pre-push")" >> "$migration_plan"
+      fi
+      ;;
+  esac
+  LC_ALL=C sort -u "$migration_plan" -o "$migration_plan"
+  migration_plan_hash=$(sha256_file "$migration_plan")
+  if [ "$migration_recovery" = 1 ]; then
+    cmp -s "$pending_migration_plan" "$migration_plan" \
+      || die "v2 adoption operation plan does not match the current migration plan"
+  fi
+fi
+
 reject_symlink_parent "$adoption_file"
 payload_records=$tmp/payload-records.tsv
 : > "$payload_records"
@@ -939,21 +1232,19 @@ while IFS= read -r staged; do
   printf '%s\t%s\t%s\n' "$record_kind" "$(sha256_file "$staged")" "$relative" >> "$payload_records"
   printf 'mode\t%s\t%s\n' "$(file_mode "$staged")" "$relative" >> "$payload_records"
 done < "$tmp/staged-files"
-instruction_block_hash=$(sha256_file "$source_root/templates/claude-md-block.md")
 ignore_block_hash=$(sha256_file "$ignore_block")
-printf 'instruction-block\t%s\t%s\n' "$instruction_block_hash" "$resolved" >> "$payload_records"
 printf 'ignore-block\t%s\t.gitignore\n' "$ignore_block_hash" >> "$payload_records"
 case "$pre_commit_action" in
   add-warn-only|unchanged|update-managed|retained-managed-warn-only)
     printf 'hook\t%s\t.git/hooks/pre-commit\n' \
-      "$(sha256_file "$stage/templates/hooks/git/pre-commit")" >> "$payload_records"
+      "$(sha256_file "$stage/.foundation-integrity/hooks/git/pre-commit")" >> "$payload_records"
     printf 'mode\t755\t.git/hooks/pre-commit\n' >> "$payload_records"
     ;;
 esac
 case "$pre_push_action" in
   add-blocking|unchanged|update-managed|retained-managed-blocking)
     printf 'hook\t%s\t.git/hooks/pre-push\n' \
-      "$(sha256_file "$stage/templates/hooks/git/pre-push")" >> "$payload_records"
+      "$(sha256_file "$stage/.foundation-integrity/hooks/git/pre-push")" >> "$payload_records"
     printf 'mode\t755\t.git/hooks/pre-push\n' >> "$payload_records"
     ;;
 esac
@@ -982,7 +1273,7 @@ printf 'content-sha256\t%s\n' "$content_sha256" >> "$payload_records"
 payload_sha256=$(LC_ALL=C sort "$payload_records" | sha256_stream)
 adoption_desired=$tmp/adoption.tsv
 {
-  printf '# foundation-integrity-adoption:v2\n'
+  printf '# foundation-integrity-adoption:v3\n'
   printf 'setting\tdistribution-version\t%s\n' "$distribution_version"
   printf 'setting\tsource-repository\t%s\n' "$source_repository"
   printf 'setting\tsource-ref\t%s\n' "$source_ref"
@@ -992,8 +1283,6 @@ adoption_desired=$tmp/adoption.tsv
   printf 'setting\tpayload-sha256\t%s\n' "$payload_sha256"
   printf 'setting\truntime\t%s\n' "$runtime"
   printf 'setting\tcomponents\t%s\n' "$components"
-  printf 'setting\tinstruction-target\t%s\n' "$resolved"
-  printf 'setting\tinstruction-block-sha256\t%s\n' "$instruction_block_hash"
   printf 'setting\tignore-block-sha256\t%s\n' "$ignore_block_hash"
   awk -F '\t' '$1 == "file" || $1 == "hook" || $1 == "external" || $1 == "mode" { print }' "$payload_records"
 } > "$adoption_desired"
@@ -1021,24 +1310,37 @@ printf '  project files: %s add, %s managed update, %s managed removal, %s manag
   "$adds" "$updates" "$removals" "$unchanged" "$external_identical" "$conflicts"
 printf '  external-identical files: verified but not claimed for future update/removal\n'
 printf '  managed skill directories: %s ledger-implied empty removal\n' "$directory_removals"
-printf '  instructions: %s -> %s\n' "$instruction_action" "$resolved"
+printf '  instructions: preserved; AGENTS.md and CLAUDE.md are never managed\n'
+if [ "$adoption_schema" = v2 ]; then
+  printf '  legacy instruction ownership: preserve bytes and transfer to project (%s)\n' \
+    "$old_instruction_target"
+  if [ "$migration_recovery" = 1 ]; then
+    printf '  migration recovery: resume only v2-ledger-proven v3 additions\n'
+  else
+    printf '  migration recovery: write a digest-bound v2-to-v3 journal before mutation\n'
+  fi
+elif [ "$migration_journal_cleanup" = 1 ]; then
+  printf '  migration recovery: remove the committed journal after postconditions\n'
+fi
 printf '  ignore rules: %s -> .gitignore\n' "$ignore_action"
 printf '  docs/agents: four files; tracker customized from origin when possible\n'
-printf '  templates: compact docs/ADR and setup helpers always; optional components follow the selection above\n'
+printf '  project layout: no templates copied; legacy v2 files retire only when owned (empty directories are preserved)\n'
 printf '  git pre-commit: %s (warn-only when added)\n' "$pre_commit_action"
 printf '  git pre-push: %s (blocking only when explicitly requested)\n' "$pre_push_action"
 if [ "$install_hooks" = 1 ]; then
-  printf '  runtime hooks: samples copied only; no settings/config merge\n'
+  printf '  runtime hooks: project-scoped config installed for %s; existing config is never merged or overwritten\n' "$runtime"
+  printf '  Codex trust: project hooks remain skipped until reviewed/trusted with /hooks\n'
 else
   printf '  runtime hooks: not selected\n'
 fi
 if [ "$install_orchestration" = 1 ]; then
-  printf '  orchestration: manuals/profiles copied only; no integration, pane, or global config activation\n'
+  printf '  orchestration: static policy at .orchestration/foundation; only %s runtime profiles selected\n' "$runtime"
+  printf '  orchestration state: .foundation/orchestration remains ignored and is not created\n'
 else
   printf '  orchestration: not selected\n'
 fi
 printf '  research payload: none copied; docs/research remains ignored working state\n'
-printf '  source-only merge templates: claude-md-block and gitignore block are not duplicated\n'
+printf '  source-only merge template: the gitignore block is not duplicated\n'
 printf '  adoption lock: %s -> %s (source ref/revision, components, payload digest, managed hashes/modes)\n' \
   "$adoption_action" "$adoption_relative"
 printf '  apply serialization: transient token-owned target lock; cooperating installers only\n'
@@ -1050,9 +1352,70 @@ if [ "$conflicts" -ne 0 ]; then
   exit 4
 fi
 
-[ "$dry_run" = 0 ] || exit 0
+if [ "$adoption_schema" = v2 ]; then
+  if [ "$migration_recovery" = 1 ]; then
+    [ "$journal_desired_adoption_hash" = "$(sha256_file "$adoption_desired")" ] \
+      || die "migration journal payload no longer matches the current v3 adoption"
+    [ "$journal_payload_hash" = "$payload_sha256" ] \
+      || die "migration journal payload digest no longer matches the current source"
+  elif [ "$dry_run" = 0 ]; then
+    while IFS="$tab" read -r action relative; do
+      [ "$action" = add ] || continue
+      destination=$target/$relative
+      [ ! -e "$destination" ] && [ ! -L "$destination" ] \
+        || die "migration journal preflight found a changed add path: $relative"
+    done < "$manifest"
+    migration_journal_desired=$tmp/migration-journal.tsv
+    {
+      printf '# foundation-integrity-v2-v3-migration:v1\n'
+      printf 'setting\told-adoption-sha256\t%s\n' "$(sha256_file "$old_adoption")"
+      printf 'setting\tdesired-adoption-sha256\t%s\n' "$(sha256_file "$adoption_desired")"
+      printf 'setting\tpayload-sha256\t%s\n' "$payload_sha256"
+      printf 'setting\tplan-sha256\t%s\n' "$migration_plan_hash"
+      printf 'setting\tinstruction-disposition\tpreserve-and-transfer-to-project\n'
+      printf 'setting\tinstruction-target\t%s\n' "$old_instruction_target"
+      printf 'setting\tinstruction-block-sha256\t%s\n' "$old_instruction_hash"
+      cat "$migration_plan"
+    } > "$migration_journal_desired"
+    path_state_matches "$migration_journal" "$migration_journal_preflight_state" \
+      || die "migration journal changed after preflight"
+    migration_journal_dir=$(dirname -- "$migration_journal")
+    mkdir -p "$migration_journal_dir"
+    migration_journal_tmp=$migration_journal.tmp.$$
+    [ ! -e "$migration_journal_tmp" ] || die "migration journal temporary path already exists"
+    cp "$migration_journal_desired" "$migration_journal_tmp"
+    mv "$migration_journal_tmp" "$migration_journal"
+    migration_journal_tmp=
+    migration_journal_expected_hash=$(sha256_file "$migration_journal")
 
-tab=$(printf '\t')
+    # The journal is only a transaction log. Bind it to the still-authoritative
+    # v2 adoption lock before any payload or hook mutation can occur. Recovery
+    # refuses an unbound/planted journal, so a journal cannot grant ownership to
+    # an identical consumer-owned path by itself.
+    path_state_matches "$adoption_file" "$adoption_preflight_state" \
+      || die "adoption lock changed before pending migration binding"
+    adoption_pending_desired=$tmp/adoption-pending.tsv
+    {
+      cat "$old_adoption"
+      printf 'setting\tpending-v3-journal-sha256\t%s\n' "$migration_journal_expected_hash"
+      printf 'setting\tpending-v3-plan-sha256\t%s\n' "$migration_plan_hash"
+      awk -F '\t' -v OFS='\t' '$1 == "add" { $1 = "pending-add"; print } \
+        $1 == "remove" { $1 = "pending-remove"; print }' "$migration_plan"
+    } > "$adoption_pending_desired"
+    adoption_pending_tmp=$adoption_file.tmp.$$
+    [ ! -e "$adoption_pending_tmp" ] || die "adoption pending temporary path already exists"
+    cp "$adoption_pending_desired" "$adoption_pending_tmp"
+    mv "$adoption_pending_tmp" "$adoption_file"
+    adoption_pending_tmp=
+    record_path_state "$adoption_file" "$adoption_preflight_state"
+  fi
+fi
+
+if [ "$dry_run" = 1 ]; then
+  exit 0
+fi
+
+applied_add=0
 while IFS="$tab" read -r action relative; do
   destination=$target/$relative
   case "$action" in
@@ -1062,6 +1425,10 @@ while IFS="$tab" read -r action relative; do
         || die "path changed after preflight; refusing add: $relative"
       mkdir -p "$(dirname -- "$destination")"
       cp -p "$stage/$relative" "$destination"
+      if [ "$applied_add" = 0 ]; then
+        applied_add=1
+        test_interrupt after-first-add
+      fi
       ;;
     update-managed)
       reject_symlink_parent "$destination"
@@ -1077,6 +1444,7 @@ while IFS="$tab" read -r action relative; do
       ;;
   esac
 done < "$manifest"
+test_interrupt after-managed-actions
 
 awk '{ path = $0; depth = gsub(/\//, "/", path); print depth "\t" $0 }' \
   "$remove_managed_dirs" | sort -rn -k1,1 | cut -f2- > "$tmp/remove-managed-dirs-deepest-first"
@@ -1089,14 +1457,6 @@ while IFS= read -r relative; do
     || die "managed directory was not empty after owned file removal: $relative"
 done < "$tmp/remove-managed-dirs-deepest-first"
 
-case "$instruction_action" in
-  add|update-owned-block)
-    path_state_matches "$instruction_file" "$instruction_preflight_state" \
-      || die "instruction owner changed after preflight: $resolved"
-    mkdir -p "$(dirname -- "$instruction_file")"
-    cp "$instruction_desired" "$instruction_file"
-    ;;
-esac
 case "$ignore_action" in
   add|update-owned-block)
     path_state_matches "$ignore_file" "$ignore_preflight_state" \
@@ -1114,7 +1474,7 @@ if [ "$pre_commit_action" = add-warn-only ] || [ "$pre_commit_action" = update-m
       || die "pre-commit changed after preflight; refusing managed update"
   fi
   mkdir -p "$git_hooks_dir"
-  cp -p "$stage/templates/hooks/git/pre-commit" "$git_hooks_dir/pre-commit"
+  cp -p "$stage/.foundation-integrity/hooks/git/pre-commit" "$git_hooks_dir/pre-commit"
   chmod +x "$git_hooks_dir/pre-commit"
 fi
 if [ "$pre_commit_action" = remove-managed ]; then
@@ -1131,7 +1491,7 @@ if [ "$pre_push_action" = add-blocking ] || [ "$pre_push_action" = update-manage
       || die "pre-push changed after preflight; refusing managed update"
   fi
   mkdir -p "$git_hooks_dir"
-  cp -p "$stage/templates/hooks/git/pre-push" "$git_hooks_dir/pre-push"
+  cp -p "$stage/.foundation-integrity/hooks/git/pre-push" "$git_hooks_dir/pre-push"
   chmod +x "$git_hooks_dir/pre-push"
 fi
 if [ "$pre_push_action" = remove-managed ]; then
@@ -1140,18 +1500,15 @@ if [ "$pre_push_action" = remove-managed ]; then
   rm -f "$git_hooks_dir/pre-push"
 fi
 
-# Detect a concurrent mutation or an incomplete copy before reporting success. These
-# checks make failure visible; they are not a rollback journal or an atomic commit.
+# Detect a concurrent mutation or an incomplete copy before reporting success. The
+# v2-to-v3 journal supports bounded retry provenance; it is not rollback or an atomic
+# commit for arbitrary filesystem failures.
 while IFS= read -r staged_file; do
   relative=${staged_file#"$stage"/}
   files_match "$staged_file" "$target/$relative" \
     || die "staged file postcondition failed: $relative"
 done < "$tmp/staged-files"
 
-extract_existing_block "$instruction_file" '<!-- BEGIN foundation-integrity -->' \
-  '<!-- END foundation-integrity -->' "$tmp/final-instruction-block" \
-  && cmp -s "$tmp/final-instruction-block" "$source_root/templates/claude-md-block.md" \
-  || die "managed instruction block postcondition failed: $resolved"
 extract_existing_block "$ignore_file" '# BEGIN foundation-integrity generated state' \
   '# END foundation-integrity generated state' "$tmp/final-ignore-block" \
   && cmp -s "$tmp/final-ignore-block" "$ignore_block" \
@@ -1201,6 +1558,7 @@ while IFS= read -r relative_root; do
   done < "$tmp/managed-final-dirs"
 done < "$managed_skill_roots"
 
+test_interrupt before-adoption-commit
 path_state_matches "$adoption_file" "$adoption_preflight_state" \
   || die "adoption lock changed after preflight: $adoption_relative"
 case "$adoption_action" in
@@ -1212,5 +1570,14 @@ esac
 [ -f "$adoption_file" ] && [ ! -L "$adoption_file" ] \
   && cmp -s "$adoption_desired" "$adoption_file" \
   || die "adoption lock postcondition failed: $adoption_relative"
+
+if [ -e "$migration_journal" ]; then
+  [ -n "$migration_journal_expected_hash" ] \
+    && [ -f "$migration_journal" ] && [ ! -L "$migration_journal" ] \
+    && [ "$(file_link_count "$migration_journal")" = 1 ] \
+    && [ "$(sha256_file "$migration_journal")" = "$migration_journal_expected_hash" ] \
+    || die "migration journal changed before completion"
+  rm -f "$migration_journal"
+fi
 
 printf '%s\n' "full-opt: complete"

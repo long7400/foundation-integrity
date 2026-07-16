@@ -14,8 +14,8 @@ fitness rules still pass." It cannot decide "is this foundation sound" — that'
 
 | Layer | File | Runtime | Authority |
 | --- | --- | --- | --- |
-| **Git hooks** | [`git/`](./git/) | both (Claude + Codex + humans) | runtime-neutral, canonical |
-| **Agent hooks** | [`claude-settings.json`](./claude-settings.json), [`codex-config.toml`](./codex-config.toml) | one per runtime | fast local feedback |
+| **Git hooks** | `.git/hooks/pre-commit`, optional `.git/hooks/pre-push` | both (Claude + Codex + humans) | runtime-neutral, canonical |
+| **Agent hooks** | `.claude/settings.json`, `.codex/hooks.json` | one per runtime | fast local feedback |
 
 The **git layer is the source of truth** — it fires for every actor (both agents and
 a human on the CLI), so a foundation check that lives there can't be sidestepped by
@@ -23,15 +23,22 @@ switching runtime. The **agent layer** is a faster feedback loop: it fires *duri
 the session (on tool use, on stop) so drift is caught at the moment it's written, not
 at commit time. Wire both; they reinforce, they don't duplicate.
 
-All three configs invoke the **same scripts** in [`scripts/`](./scripts/) — one
-implementation, three wirings. Change a check once, all runtimes get it.
+Codex project hooks load only for a trusted project and changed non-managed command
+hooks require review/trust. Use `/hooks` to inspect the exact definition before
+expecting the Codex wiring to run. See the official
+[Codex Hooks documentation](https://learn.chatgpt.com/docs/hooks) for the current
+event, matcher, stdin, and exit-status contract.
 
-## The scripts ([`scripts/`](./scripts/))
+All configs invoke the **same managed scripts** installed under
+`.foundation-integrity/hooks/` — one implementation, three wirings. The Codex file
+is a real project hook definition, not an inert TOML fragment.
 
-- [`fitness-check.sh`](./scripts/fitness-check.sh) — run the wired tier-3 adapter (if
+## The managed scripts
+
+- `.foundation-integrity/hooks/fitness-check.sh` — run the wired tier-3 adapter (if
   any) plus a cheap tier-2 delta. Non-zero exit = a structural rule broke. Fast; safe
   to run on every edit/commit.
-- [`foundation-surface-guard.sh`](./scripts/foundation-surface-guard.sh) — did this
+- `.foundation-integrity/hooks/foundation-surface-guard.sh` — did this
   change touch a **foundation-surface** path (public API, schema, migration, auth,
   core domain, shared module) without a **valid v2 receipt in the same change set that
   names that exact path**? (Receipt format: [`review-receipt.md`](./review-receipt.md);
@@ -61,10 +68,12 @@ and a disabled hook is **worse than none** (it reads as safety that isn't there)
 Therefore:
 
 - Scope every hook to **foundation-surface paths only** (configured in
-  [`foundation-surface.txt`](./foundation-surface.txt)). Edits elsewhere pass silently.
+  `.foundation-integrity/hooks/foundation-surface.txt`). Edits elsewhere pass silently.
 - Default posture is **warn**, not block. Blocking (`exit 2` in Claude, non-zero in
   git) is opt-in, and only for the surface-guard on a pre-push — never on every keystroke.
 - The pre-commit stays fast (delta only). Full fitness runs on pre-push / CI.
+- Ignored numbered ADRs can clear only the local worktree advisory check. A blocking
+  pushed-range check needs a tracked receipt in the pushed commit.
 
 ## What the surface-guard does — and what it honestly can't
 
@@ -87,4 +96,4 @@ Be honest about the ceiling, though:
   agent that's usually enough — the goal is to make skipping deliberate and visible,
   not impossible. Against an adversarial one, it isn't a control.
 
-See "Residual limits" in `templates/docs/why-foundation-integrity.md`.
+See "Residual limits" in `docs/foundation/why-foundation-integrity.md`.

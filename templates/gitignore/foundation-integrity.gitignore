@@ -2,8 +2,9 @@
 .foundation/
 docs/research/
 tmp/
+docs/adr/*.md
+!docs/adr/0000-template.md
 # END foundation-integrity generated state
 
-# Canonical records belong outside ignored working state: docs/adr/,
-# docs/foundation/receipts/, docs/agents/, CONTEXT.md, and .scratch/ remain
-# trackable by default.
+# The local ADR sequence is personal working history; only its template is tracked.
+# Promote shareable evidence to an explicitly tracked owner when the project needs it.
