@@ -44,8 +44,12 @@ runtime=$(awk -F '\t' '
   echo "pilot receipt: contract needs exactly one runtime setting" >&2
   exit 1
 }
+write_isolation=$(awk -F '\t' '
+  $1 == "actor" && $3 == "implementer" { found = 1 }
+  END { print found ? "pass" : "not-applicable" }
+' "$contract")
 
-awk -v expected_contract_hash="$contract_hash" -v expected_matrix_hash="$matrix_hash" -v expected_state="$current_state_path" -v expected_runtime="$runtime" -v fields_out="$tmp/fields" '
+awk -v expected_contract_hash="$contract_hash" -v expected_matrix_hash="$matrix_hash" -v expected_state="$current_state_path" -v expected_runtime="$runtime" -v expected_write_isolation="$write_isolation" -v fields_out="$tmp/fields" '
 function fail(msg) {
   print "pilot receipt: " msg > "/dev/stderr"
   bad = 1
@@ -119,7 +123,7 @@ END {
   for (key in values) {
     if (key ~ /sha256$/ && (length(values[key]) != 64 || values[key] ~ /[^0-9a-fA-F]/)) fail(key " must be 64 hex characters")
   }
-  if (values["write-isolation"] != "pass") fail("write-isolation must be pass")
+  if (values["write-isolation"] != expected_write_isolation) fail("write-isolation must be " expected_write_isolation " for this contract")
   if (values["session-policy"] != "fresh-only") fail("session-policy must be fresh-only")
   if (values["decision"] !~ /^(keep|amend|remove|inconclusive)$/) fail("invalid decision")
   exit bad

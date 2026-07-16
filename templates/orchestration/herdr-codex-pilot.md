@@ -23,23 +23,55 @@ Keep any reviewed global `model_instructions_file` untouched. Worker profiles sh
 Example peer profile:
 
 ```toml
-# ~/.codex/fi-peer-max.config.toml
-model = "gpt-5.6-luna"
-model_reasoning_effort = "max"
+# ~/.codex/fi-peer-challenge.config.toml
+model = "gpt-5.6-sol"
+model_reasoning_effort = "medium"
 sandbox_mode = "read-only"
 approval_policy = "never"
 developer_instructions = """
-You are an independent peer speaking directly with the decision owner. Do not
-delegate or supervise other agents. Expand the problem space, seek primary
-counterevidence, and report unknowns and the strongest alternative. Do not use
-or inspect terminal-multiplexer control mechanisms.
+You are an independent read-only peer handling challenge work. Speak directly
+with the decision owner. Do not delegate or supervise other agents. Expand the
+problem space, seek primary counterevidence, and report unknowns and the
+strongest alternative. Do not use or inspect transport-control mechanisms.
 """
 
 [features]
 multi_agent = false
 ```
 
-An implementer profile may use `workspace-write`, but only with a worktree and write scope recorded in the run contract. A reviewer stays read-only and receives no author narrative. Do not install a transport-control skill for any role. Root controller behavior is plain `developer_instructions` in the root profile; worker profiles contain no backend protocol.
+An implementer profile may use `workspace-write`, but only with a worktree and write scope recorded in the run contract. A peer stays read-only and receives no author narrative for challenge work. Do not install a transport-control skill for any role. Root controller behavior is plain `developer_instructions` in the root profile; non-root profiles contain no backend protocol.
+
+## Explicit install, update, and removal
+
+The repository does not install profiles automatically. Review the files, then copy
+only the five Codex envelopes:
+
+```sh
+cp templates/orchestration/profiles/codex/fi-*.config.toml "$HOME/.codex/"
+rm -f "$HOME/.codex/fi-worker-medium.config.toml" \
+  "$HOME/.codex/fi-peer-max.config.toml" \
+  "$HOME/.codex/fi-implementer-medium.config.toml" \
+  "$HOME/.codex/fi-implementer-max.config.toml"
+```
+
+This affects only future `codex --profile fi-*` launches. It does not change the
+base model, base instruction override, ordinary unprofiled sessions, Herdr itself,
+or an already-running session. Do not copy a delegated-work block into user-wide
+`AGENTS.md`; explicit role behavior belongs in the profiles.
+
+Herdr's Codex identity/status integration is a separate optional mechanism. Inspect
+its generated changes before enabling it:
+
+```sh
+herdr integration status
+herdr integration install codex
+herdr integration uninstall codex
+```
+
+Removing the pilot means uninstalling the integration if it is unwanted, deleting
+the five installed `fi-*.config.toml` files after no live session depends on them,
+and removing project references. Deleting repository templates alone does not undo
+already-copied user profiles or hooks.
 
 ## Transparent launch sequence
 
@@ -59,7 +91,7 @@ Illustrative commands; read IDs from each JSON response:
 ```sh
 herdr tab create --workspace "$HERDR_WORKSPACE_ID" --cwd "$PWD" --label "peer-a" --no-focus
 # Read the created tab/pane IDs from JSON.
-herdr pane run <pane-id> "codex --profile fi-peer-max"
+herdr pane run <pane-id> "codex --profile fi-peer-challenge"
 herdr wait agent-status <pane-id> --status idle --timeout 30000
 herdr pane run <pane-id> "<open task packet>"
 herdr wait agent-status <pane-id> --status working --timeout 30000
@@ -92,16 +124,15 @@ Minimum resume experiment:
 
 A matching conversation history does not prove matching authority.
 
-## Mechanisms borrowed, files not copied
+## Mechanism boundary
 
-No FirstMate component is installed or vendored. The useful mechanisms were identified from immutable FirstMate commit [`e063ca5e2459ea8cbcefb1d58310b3617318bfb8`](https://github.com/kunchenguid/firstmate/commit/e063ca5e2459ea8cbcefb1d58310b3617318bfb8):
+No FirstMate component is installed or vendored. This pilot keeps only the local
+mechanisms it can explain and remove: worktree isolation, durable task metadata,
+event-driven attention with bounded polling fallback, creation provenance before
+teardown, and a single controller lock.
 
-- worktree isolation separate from the terminal backend (`docs/herdr-backend.md`);
-- durable task metadata (`bin/fm-spawn.sh`);
-- event-driven supervision with polling fallback (`bin/fm-watch.sh`, `bin/backends/herdr.sh`);
-- creation provenance before prune/teardown (`docs/herdr-backend.md`);
-- a single session/fleet lock to prevent two controllers (`AGENTS.md`, `bin/fm-lock.sh`).
-
-Do not copy its agent distro, skills, second-level hierarchy, daemon, project modes, or approval policy. Reimplement only a mechanism after its local invariant and deletion path are explicit.
-
-Primary Herdr evidence for the resume seam: commit [`d0111c9f9022e0ec26d8f03236a91b026b567d45`](https://github.com/ogulcancelik/herdr/commit/d0111c9f9022e0ec26d8f03236a91b026b567d45), especially `src/agent_resume.rs`, `src/integration/assets/codex/herdr-agent-state.sh`, and `website/src/content/docs/session-state.mdx`.
+Do not copy an agent distribution, second-level hierarchy, daemon, project-mode
+state machine, or approval policy. Add a mechanism only after its local invariant,
+write authority, evidence surface, and deletion path are explicit. The compact
+consumer audit pointer is `templates/docs/distribution-provenance.md`; full research
+stays in the distribution ADRs.

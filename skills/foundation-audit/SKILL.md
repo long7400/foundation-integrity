@@ -1,6 +1,6 @@
 ---
 name: foundation-audit
-description: Use when designing or building a non-trivial feature, module, mechanism, migration, or refactor — or when reviewing an implementation that may be locally excellent but globally misfit — to run a proportional audit of the foundation the work will load-bear on. The audit's first objective is to FALSIFY the foundation claims the work depends on — not to make the feature fit the current code at any cost. Produces a foundation receipt, a classification (FOUNDATION_OK / FOUNDATION_SUSPECT / FOUNDATION_BLOCKED), an explicit outcome (PROCEED / RESEARCH_ONLY / NO_GO), and one justified implementation route. Use before to-spec/design and before implement/tdd/prototype, before a migration or schema change, or whenever you're about to build on top of something you haven't verified.
+description: Audit and try to falsify the load-bearing foundation before a non-trivial design or implementation; return one classification, outcome, and route before feature work proceeds.
 disable-model-invocation: true
 ---
 
@@ -132,10 +132,9 @@ Escalate to `adversarial-foundation-review` — a separate session whose only jo
 
 An audit is a *reasoning* check; its honesty is its weak point. Where a real code stack exists, back it with **machine-measured** fitness checks so structural violations trip mechanically, with no good-faith required. The intents (tech-neutral): dependency direction holds, no new cycles, no duplicated domain type, complexity under a ceiling, no new change-coupling across module boundaries, layering respected. A claim rated `OK` should point at the check that enforces it, not just at your confidence. The maintained templates and runtime projections under `templates/fitness/` are the wiring surface; no second setup skill is required. Green fitness checks are necessary, not sufficient: they prove no rule broke, not that the design is right.
 
-Choose evidence by the claim being made, not by ritual. Use
-Use the distribution/repository-root file
-`templates/fitness/proof-surface-selection.md`.
-to select a repro, contract test, validator, benchmark, runtime observation, visual
+Choose evidence by the claim being made, not by ritual. Use the
+distribution/repository-root file `templates/fitness/proof-surface-selection.md` to
+select a repro, contract test, validator, benchmark, runtime observation, visual
 check, or owner-boundary proof that can falsify the claim and survive harmless
 internal refactors.
 

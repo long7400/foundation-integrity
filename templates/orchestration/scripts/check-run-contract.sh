@@ -17,8 +17,9 @@ FNR == NR {
   if ($0 ~ /^[[:space:]]*#/ || $0 ~ /^[[:space:]]*$/) next
   key = $1 SUBSEP $2
   matrix_role[key] = $3
-  matrix_access[key] = $6
-  matrix_claim[key] = $7
+  matrix_work_class[key] = $4
+  matrix_access[key] = $7
+  matrix_claim[key] = $8
   next
 }
 
@@ -42,11 +43,7 @@ function safe_repo_path(path) {
 }
 
 function role_matches_profile(actor_role, profile_role) {
-  if (actor_role == "root") return profile_role == "root-lead"
-  if (actor_role == "worker") return profile_role == "worker-medium"
-  if (actor_role == "peer" || actor_role == "reviewer") return profile_role == "peer-max"
-  if (actor_role == "implementer") return profile_role == "implementer-medium" || profile_role == "implementer-max"
-  return 0
+  return actor_role == profile_role
 }
 
 function access_matches_role(runtime, actor_role, access) {
@@ -82,7 +79,7 @@ $1 == "actor" {
   artifact = $6
   if (id == "" || seen_actor[id]++) fail("actor id is empty or duplicated at line " FNR)
   actors[id] = role
-  if (role !~ /^(root|worker|peer|implementer|reviewer)$/) fail("unknown role " role " at line " FNR)
+  if (role !~ /^(root|peer|implementer)$/) fail("unknown role " role " at line " FNR)
   if (artifact == "" || artifact == "-") fail("every actor needs an artifact path at line " FNR)
   if (!safe_repo_path(artifact)) fail("artifact path must be canonical and repo-relative at line " FNR)
   if (seen_artifact[artifact]++) fail("duplicate artifact path " artifact)

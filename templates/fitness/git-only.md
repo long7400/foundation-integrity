@@ -11,11 +11,9 @@ pattern across dozens means something. So they belong in `foundation-health` (a
 periodic, separate-from-feature-work pass), not in a per-edit hook. Treat every
 number below as an **investigation trigger**, never proof.
 
-> Why history works: logical / change coupling "exploits the release history of a
-> software system to find change patterns among modules" — files that always change
-> together are coupled whether or not the code says so. It needs "only commit
-> metadata … no parsing, type-checking … needed"
-> ([Coupling — logical coupling](https://en.wikipedia.org/wiki/Coupling_(computer_programming))).
+History exposes change coupling directly: files that repeatedly change together are
+operationally coupled even when the import graph does not show it. This signal needs
+commit metadata rather than a language parser.
 
 ## The signals
 

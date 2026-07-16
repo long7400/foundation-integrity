@@ -1,6 +1,6 @@
 # ADR-0002: Use one role/model policy with explicit Codex and Claude adapters
 
-- **Status:** accepted
+- **Status:** superseded by ADR-0004
 - **Date:** 2026-07-15
 - **Foundation route:** Foundation-first
 - **Classification at decision time:** FOUNDATION_SUSPECT

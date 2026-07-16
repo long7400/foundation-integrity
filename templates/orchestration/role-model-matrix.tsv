@@ -1,12 +1,12 @@
-# foundation-integrity-role-model-policy:v1
-# runtime<TAB>profile<TAB>role<TAB>model<TAB>effort<TAB>access<TAB>claim-authority
-codex	fi-root-lead	root-lead	gpt-5.6-sol	xhigh	workspace-write	final
-codex	fi-worker-medium	worker-medium	gpt-5.6-sol	medium	read-only	observations
-codex	fi-implementer-medium	implementer-medium	gpt-5.6-sol	medium	workspace-write	bounded
-codex	fi-peer-max	peer-max	gpt-5.6-luna	max	read-only	corroborated
-codex	fi-implementer-max	implementer-max	gpt-5.6-luna	max	workspace-write	bounded
-claude	fi-root-lead	root-lead	claude-opus-4.8	max	manual	final
-claude	fi-worker-medium	worker-medium	claude-haiku-4.5	medium	dontAsk	observations
-claude	fi-implementer-medium	implementer-medium	claude-haiku-4.5	medium	acceptEdits	bounded
-claude	fi-peer-max	peer-max	claude-opus-4.7	max	dontAsk	corroborated
-claude	fi-implementer-max	implementer-max	claude-opus-4.7	max	acceptEdits	bounded
+# foundation-integrity-role-model-policy:v2
+# runtime<TAB>profile<TAB>actor-role<TAB>work-class<TAB>model<TAB>effort<TAB>access<TAB>claim-authority
+codex	fi-root-lead	root	control	gpt-5.6-sol	xhigh	workspace-write	final
+codex	fi-peer-scout	peer	scout	gpt-5.6-luna	max	read-only	observations
+codex	fi-peer-challenge	peer	challenge	gpt-5.6-sol	medium	read-only	counterevidence
+codex	fi-implementer-mechanical	implementer	mechanical	gpt-5.6-luna	max	workspace-write	bounded
+codex	fi-implementer-ambiguous	implementer	ambiguous	gpt-5.6-sol	medium	workspace-write	bounded
+claude	fi-root-lead	root	control	claude-opus-4.8	max	manual	final
+claude	fi-peer-scout	peer	scout	claude-haiku-4.5	medium	dontAsk	observations
+claude	fi-peer-challenge	peer	challenge	claude-opus-4.7	max	dontAsk	counterevidence
+claude	fi-implementer-mechanical	implementer	mechanical	claude-haiku-4.5	medium	acceptEdits	bounded
+claude	fi-implementer-ambiguous	implementer	ambiguous	claude-opus-4.7	max	acceptEdits	bounded

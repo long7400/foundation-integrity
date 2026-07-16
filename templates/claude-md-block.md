@@ -1,46 +1,34 @@
+<!-- BEGIN foundation-integrity -->
 ## Foundation Integrity
 
-The gate that runs before building on a foundation, so a capable agent doesn't bend logic to fit a weak one. Full rationale: `docs/agents/foundation.md`.
+- Before a non-trivial feature, module, mechanism, migration, refactor, or
+  security/reliability/performance change, load `foundation-audit`. Skip only clearly
+  mechanical/local work and state why.
+- Try to falsify the foundation before making the feature fit. Check the owner,
+  authoritative source, lifecycle, trust boundaries, dependency direction,
+  invariants, intended versus observed behavior, and the simpler established system
+  archetype when that comparison is material.
+- Treat existing code, tests, docs, and runtime behavior as evidence, not automatic
+  truth. Unknown load-bearing facts require bounded research, not an implementation
+  assumption.
+- Record exactly one classification (`FOUNDATION_OK`, `FOUNDATION_SUSPECT`, or
+  `FOUNDATION_BLOCKED`), one outcome (`PROCEED`, `RESEARCH_ONLY`, or `NO_GO`), and
+  one route (Foundation-first, Bounded compatibility, or Feature-first). Only
+  `PROCEED` unlocks dependent implementation.
+- Stop if the path would create a second authority, bypass ownership or a trust
+  boundary, require repeated exceptions, or freeze a known mismatch into a public or
+  durable contract. Foundation repair is a valid successful outcome.
+- Select acceptance proof for the architectural property at risk. Green feature
+  tests are necessary but insufficient when a cheap fake pass can preserve the wrong
+  owner, archetype, or compatibility residue.
+- A foundation-surface change, mismatch signal, or regressed fitness check requires a
+  fresh independent `adversarial-foundation-review`. The implementer cannot approve
+  its own durable work.
+- Keep accepted decisions and evidence in canonical text. Working `.foundation/`,
+  `docs/research/`, and `tmp/` state is not authoritative.
 
-### The gate
-
-- Before design or implementation is frozen for a non-trivial feature, module, mechanism, migration, or refactor, run `foundation-audit`. Record exactly one outcome: `PROCEED`, `RESEARCH_ONLY`, or `NO_GO`; only `PROCEED` may authorize implementation. Skip only work that is clearly mechanical or local with no plausible architectural effect — and say in one line why the skip is safe.
-- The audit's first objective is to **falsify** the foundation claims the work depends on, not to make the feature fit the current code at any cost. A foundation repair, a research blocker, or an evidence-backed no-go is a valid outcome; feature completion is not the only success.
-- Challenge the system archetype as well as the local implementation: expected category versus observed category, primary evidence for the simplest established alternative, the project constraint that justifies deviation, and the compensating complexity that would disappear. If that comparison is load-bearing but evidence is missing, stop at `RESEARCH_ONLY`; never invent an industry standard.
-- Classify the foundation as exactly one of `FOUNDATION_OK`, `FOUNDATION_SUSPECT`, `FOUNDATION_BLOCKED`, record the explicit outcome, and choose one justified route: Foundation-first, Bounded-compatibility, or Feature-first.
-- Stop before implementation when the path would violate an invariant or trust boundary, create a second source of truth, require repeated exceptions, or materially entrench a known mismatch. If active harm exists, apply the smallest containment first, then decide.
-- Shared anti-pattern names are mnemonics, not verdicts. A name is useful only when it points to a foundation claim, primary evidence, a disconfirming probe, and an acceptance/fitness check.
-
-### Explain-the-invariant tripwire
-
-- Before merging any change that touches the foundation, state the one canonical invariant it preserves — in a single plain sentence. If you cannot state it, the change is not ready and understanding debt has reached its limit: stop and resolve, don't merge.
-- A handoff is not merge-ready unless the source of truth, the canonical invariant, the trusted foundation claims, the material failure modes, and every compatibility seam's lifecycle are explicit enough for an accountable maintainer to verify and explain.
-
-### Independent check — triggered by facts, not by the self-rating
-
-- Run `adversarial-foundation-review` in a **separate session** (ideally a different model) whenever an *observable condition* fires: the change touches a foundation surface (public API, schema, migration, auth, core domain, shared module), a mismatch signal appeared, or a wired fitness check regressed. The self-rating (`SUSPECT`/`BLOCKED`) is one trigger among these — never the only one. You must not be able to skip the second opinion by grading yourself `OK`.
-- Native subagent/background delegation is disabled for this pack. If a companion workflow asks for subagents, background work, or parallel reviewers, translate the intent into a root-owned open task packet when external coworker mode is available; otherwise perform the review locally or report that the independent session is unavailable. Do not create a second control plane; workers do not learn transport topology, and implementers cannot self-approve durable changes.
-
-### Machine-measured fitness (where a code stack exists)
-
-- Structural health is enforced by fitness checks, not good faith: dependency direction, no cycles, layering, complexity, cross-boundary change-coupling. Select proof by claim—repro, contract test, validator, benchmark, runtime observation, visual check, or owner-boundary evidence—and prefer proof that survives harmless internal refactors. A claim rated `OK` should point at the check that enforces it. Green fitness checks are necessary, not sufficient — they prove no rule broke, not that the design is right.
-- Hooks run these checks whether or not the agent wants them to. The surface-guard removes the self-grade escape — it fires on a changed surface file with no valid receipt naming it, making a skipped review visible and costly. In the default *advisory* mode the receipt is author-writable (records a decision, doesn't prove a review ran); the opt-in *attested* mode additionally requires a signed, trusted-reviewer attestation, and is only meaningful if the signing key lives outside the agent's reach and protected CI re-runs the check.
-
-### Cumulative check
-
-- Every few waves of work, run `foundation-health` in a session **separate from feature work**. The per-feature gate can pass repeatedly while the whole still drifts; this reads churn, open ADRs, and past receipts, trends them over time, and produces a remediation backlog ranked by hotspot × coupling.
-
-### Record decisions
-
-- For any Foundation-first or Bounded-compatibility route, write an ADR (`docs/adr/`) capturing the claim, the counter-evidence, the chosen route, and — for a temporary seam — its removal condition.
-
-<!-- FOUNDATION-INTEGRITY:WORKFLOW-PACK-INTEGRATION
-Included by the maintained repo configuration when a workflow pack is detected;
-there is no hidden setup skill or second setup control plane.
-Remove this section if no such pack is installed. -->
-### Workflow-pack integration
-
-- Run `foundation-audit` before `to-spec` or any architecture is frozen; if a spec already exists, audit immediately before design/code.
-- Give `code-review` a foundation lens: check the change against the mismatch signals in `docs/agents/foundation.md`, not only local standards.
-- On a Foundation-first route, hand the repair to `improve-codebase-architecture` or `codebase-design`.
-- These are reference lines, not a dependency. If the workflow pack is removed, they degrade to plain guidance and the gate still runs.
+Optional external coworker orchestration is not a skill or default workflow. Load its
+policy and runtime adapter only when explicitly requested. One root owns acceptance;
+native subagents stay disabled for that run; workers receive no transport topology;
+transport status is never proof.
+<!-- END foundation-integrity -->

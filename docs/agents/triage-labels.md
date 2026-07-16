@@ -1,6 +1,8 @@
 # Triage label vocabulary
 
-The companion workflow uses these default GitHub label meanings:
+The companion workflow uses these default tracker-label meanings. The strings are
+GitHub-compatible defaults, but do not create or rely on them until
+`docs/agents/issue-tracker.md` names a configured tracker:
 
 | Label | Meaning |
 | --- | --- |

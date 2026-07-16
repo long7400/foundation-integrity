@@ -1,10 +1,9 @@
 # Adapter — Go (go-arch-lint)
 
-[go-arch-lint](https://github.com/fe3dback/go-arch-lint) enforces architectural
-boundaries in Go by validating actual import dependencies against rules you declare
-in a `.go-arch-lint.yml`. You map packages to named components (handler, service,
-repository) and state which components may depend on which. It returns exit code 1 on
-a violation, so it fails CI directly.
+`go-arch-lint` enforces architectural boundaries in Go by validating actual import
+dependencies against rules declared in `.go-arch-lint.yml`. You map packages to
+named components and state which components may depend on which. A violation exits
+non-zero, so the same rule can run locally and in CI.
 
 Enforces tier-1 intents: **dependency direction**, **layering / component
 boundaries**.

@@ -8,7 +8,7 @@ accepted decision-lossless receipt (verdict, rationale, decisive evidence hashes
 strongest alternative, and next removal point) into `docs/foundation/receipts/` or an
 ADR. Never leave durable acceptance represented only by ignored `.foundation/` state.
 
-Fill the machine-bound block and run `scripts/check-pilot-run-receipt.sh <run-contract.tsv> <pilot-run-receipt.md> <role-model-matrix.tsv>`. The validator binds the contract/matrix, root current state, exact worker artifact, transcript, and baseline/pilot result artifacts by SHA-256. It also requires fresh-session policy and a passed write-isolation smoke. It still does not validate reasoning quality or the root's decision.
+Fill the machine-bound block and run `scripts/check-pilot-run-receipt.sh <run-contract.tsv> <pilot-run-receipt.md> <role-model-matrix.tsv>`. The validator binds the contract/matrix, root current state, exact worker artifact, transcript, and baseline/pilot result artifacts by SHA-256. It also requires fresh-session policy and a passed write-isolation smoke only when the contract contains an implementer. It still does not validate reasoning quality or the root's decision.
 
 ```markdown
 <!-- foundation-integrity-coworker-pilot:v2
@@ -23,7 +23,7 @@ worker-artifact-path: <repo-relative-preserved-worker-output>
 worker-artifact-sha256: <sha256-of-worker-artifact>
 transcript-path: <repo-relative-transport-transcript-or-excerpt>
 transcript-sha256: <sha256-of-transcript>
-write-isolation: pass
+write-isolation: <pass when an implementer exists; otherwise not-applicable>
 session-policy: fresh-only
 baseline-artifact-path: <repo-relative-simple-baseline-result>
 baseline-artifact-sha256: <sha256-of-baseline-artifact>
@@ -73,7 +73,7 @@ decision: keep|amend|remove|inconclusive
 - Resume attempted: yes/no
 - Resume launch envelope revalidated: rejected/not-run
 - Fresh session IDs or rejected resume IDs (must satisfy `fresh-only`):
-- Implementer write-isolation smoke: pass (required before any write-capable role):
+- Implementer write-isolation smoke: pass when a write-capable role exists; otherwise not-applicable:
 - Effective model/effort/tool/permission observations:
 - Unknown load-bearing facts:
 

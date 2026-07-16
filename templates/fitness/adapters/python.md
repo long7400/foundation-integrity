@@ -1,10 +1,8 @@
 # Adapter — Python (import-linter)
 
-[import-linter](https://github.com/seddonym/import-linter) lets you "impose
-constraints on the imports between your Python modules" and enforces them as an
-automated check in CI. You declare architectural **contracts** (layers, forbidden
-imports, independence) in a config file and the linter fails when the real import
-graph violates them.
+`import-linter` enforces declared constraints on imports between Python modules. You
+declare architectural **contracts** (layers, forbidden imports, independence) in a
+config file and the linter fails when the real import graph violates them.
 
 Enforces tier-1 intents: **dependency direction** (layered contract), **layering**,
 and **forbidden imports** between modules that should stay independent.

@@ -17,7 +17,8 @@ DIR="templates/hooks/scripts"   # <- change to where fitness scripts live in you
 # at commit time (blocking belongs on pre-push).
 [ -x "$DIR/foundation-surface-guard.sh" ] && "$DIR/foundation-surface-guard.sh" || true
 
-# Fast structural check on the wired adapter (if any).
-[ -x "$DIR/fitness-check.sh" ] && "$DIR/fitness-check.sh" || true
+# Cheap git delta only. Stack adapters are intentionally deferred until pre-push/CI
+# or an explicitly merged runtime hook, after the project has selected its adapter.
+[ -x "$DIR/fitness-check.sh" ] && FI_DELTA_ONLY=1 "$DIR/fitness-check.sh" || true
 
 exit 0

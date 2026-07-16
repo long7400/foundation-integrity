@@ -1,14 +1,8 @@
 # Fitness functions — the measurement layer
 
-The foundation gate (`foundation-audit`) is a *reasoning* check: it depends on the
-honesty of the session running it. That's its weakest point — the same completion
-bias that makes an agent bend logic to fit a weak foundation also makes it rate its
-own work `FOUNDATION_OK` so it can proceed. There's a measured mechanism behind this,
-not just a hunch: LLM judges assign higher scores to output with **lower perplexity**
-— i.e. output more familiar to the model itself
-([Self-Preference Bias in LLM-as-a-Judge, arXiv 2410.21819](https://arxiv.org/abs/2410.21819)).
-A model grading its own freshly-written wrapper is grading something maximally
-familiar to it.
+The foundation gate (`foundation-audit`) is a *reasoning* check. Its weak point is
+self-attestation: the same session that wants to finish the feature can rationalize
+its own compensating design and rate the foundation `FOUNDATION_OK`.
 
 Fitness functions close *part* of that hole. They are **machine-measured** signals of
 architectural health — they need no good faith and nobody has to read the code. A
@@ -22,7 +16,8 @@ concept expressed as two "legal" types, or a foundation built on the wrong arche
 can all pass every structural rule while being exactly the bent-logic the pack warns
 about. So fitness checks are a floor, not a verdict — they catch the violations that
 are cheap to catch and free the reasoning gate to focus on the ones that aren't. See
-"The honest boundary" below and "Residual limits" in `../docs/why-foundation-integrity.md`.
+"The honest boundary" below and "Residual limits" in
+`../docs/why-foundation-integrity.md`.
 
 ## Three tiers
 

@@ -5,11 +5,11 @@ non-trivial feature, module, migration, refactor, or security/reliability/perfor
 change, falsify the load-bearing foundation claims first.
 
 The canonical operating rules live in `AGENTS.md` or `CLAUDE.md`; that file is the
-active owner. Distribution maintainers keep the reusable marked source block in
-`templates/claude-md-block.md`, while `full-opt` consumers receive its merged content
-without retaining a duplicate source file. The receipt guide is
-`templates/docs/foundation-audit.md`; the compact rationale is
-`templates/docs/why-foundation-integrity.md`.
+active owner. Full-opt merged the marked consumer block there and deliberately did
+not retain a duplicate source template. The receipt guide is
+`templates/docs/foundation-audit.md`; the compact rationale and audit pointer are
+`templates/docs/why-foundation-integrity.md` and
+`templates/docs/distribution-provenance.md`.
 
 Project-specific receipts belong under `docs/foundation/receipts/`. Working research
 belongs under ignored `docs/research/` and must be promoted into an ADR, receipt,

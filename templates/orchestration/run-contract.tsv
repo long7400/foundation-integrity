@@ -15,8 +15,8 @@ setting	artifact_provenance	content-digest
 setting	controller_lock_path	.foundation/orchestration/controller.lock
 actor	root	root	control	-	.foundation/orchestration/current.md
 profile	root	fi-root-lead
-actor	worker-a	worker	mechanism-discovery	-	.foundation/orchestration/worker-a.md
-profile	worker-a	fi-worker-medium
-actor	peer-b	reviewer	strongest-alternative	-	.foundation/orchestration/peer-b.md
-profile	peer-b	fi-peer-max
+actor	scout-a	peer	mechanism-discovery	-	.foundation/orchestration/scout-a.md
+profile	scout-a	fi-peer-scout
+actor	challenge-b	peer	strongest-alternative	-	.foundation/orchestration/challenge-b.md
+profile	challenge-b	fi-peer-challenge
 lock	canonical-validation	root

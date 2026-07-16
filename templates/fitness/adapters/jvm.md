@@ -1,10 +1,8 @@
 # Adapter — JVM (ArchUnit)
 
-[ArchUnit](https://github.com/TNG/ArchUnit) is "a free, simple and extensible library
-for checking the architecture of your Java code." It analyzes compiled bytecode and
-lets you assert structural rules **inside your normal test suite** — "check
-dependencies between packages and classes, layers and slices, check for cyclic
-dependencies and more," using any plain JUnit runner. Works for Java and Kotlin.
+`ArchUnit` analyzes compiled bytecode and lets Java or Kotlin projects assert
+structural rules inside the normal test suite: package/class dependencies, layers,
+slices, and cycles. A broken rule fails like any other test.
 
 Enforces tier-1 intents: **dependency direction**, **no cycles**, **layering** — and
 because the rules are tests, a violation fails CI exactly like any failing test.

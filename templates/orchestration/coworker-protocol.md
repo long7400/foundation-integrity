@@ -1,6 +1,6 @@
 # Experimental coworker protocol
 
-Status: **opt-in pilot; advisory; not installed by setup**.
+Status: **opt-in pilot; advisory; copied but never activated by explicit full-opt setup**.
 
 This template is for a harness that opens independent, top-level agent sessions. It does not create a new agent hierarchy and does not make a terminal multiplexer the workflow engine. The session backend is replaceable transport; the root session owns the task graph and accepts or rejects evidence.
 
@@ -19,7 +19,7 @@ The root selects the runtime and role envelope from [`role-model-matrix.tsv`](./
 5. **Open hypothesis, closed safety envelope.** The task packet states the question, foundation claims, allowed scope, permissions, evidence requirements, and stop conditions. It does not include the desired architectural answer or reduce an open design problem to true/false confirmation.
 6. **Authority follows claim class, not model tier.** Reproducible mechanical observations may be accepted locally. Hypotheses remain hypotheses. Architectural, security, and durable-contract conclusions require corroboration and independent review. Release decisions stay with the root.
 7. **One task, one owner, one write scope.** Read-only research may share a checkout. Any writing task gets an isolated worktree or an explicitly serialized path scope. Overlapping writes are sequential unless an external lock proves ownership.
-8. **Events and current state stay separate.** Workers return append-only receipts or events; the root preserves a read-only worker's response at the contract artifact path without presenting it as root-authored evidence. Only the root updates the current task record. Monitoring is a root/harness concern, not a worker role; it may enqueue attention hints but never turns liveness into semantic success.
+8. **Events and current state stay separate.** Coworkers return append-only receipts or events; the root preserves a read-only peer's response at the contract artifact path without presenting it as root-authored evidence. Only the root updates the current task record. Monitoring is a root/harness concern, not a coworker role; it may enqueue attention hints but never turns liveness into semantic success.
 9. **Canonical validation is leased.** Heavy or flaky evidence execution has one named lock owner at a time. The root grants or revokes the lease. Evidence records revision, cwd, exact command, exit status, and artifact pointer. Workers and reviewers may add counter-tests or request a versioned amendment; they cannot silently lower the acceptance contract.
 10. **Session references are continuity pointers only.** Resume only when task, role, repository/worktree, revision, and acceptance contract still match. A session ID is not worker identity, authority, correctness, or completion proof. Use a fresh thread for clean-room challenge; use a fork only when inherited history is intentionally part of the experiment.
 11. **Park before teardown.** When transport reports `idle` or `done`, collect the artifact, preserve disagreement, reconcile evidence, and mark accepted/rejected/cancelled before archive or close.
@@ -33,17 +33,18 @@ The root selects the runtime and role envelope from [`role-model-matrix.tsv`](./
 
 ## Minimal roles
 
-- **root** — global authority, synthesis, evidence-lock grantor, final acceptance.
-- **worker** — bounded observations and reproducible artifacts; no high-impact claim promotion.
-- **peer** — independent problem-space expansion and strongest-alternative work; no coworker control.
-- **implementer** — bounded write scope and acceptance contract; cannot approve its own high-impact change.
-- **reviewer** — read-only independent attack on claims/evidence/route; cannot edit the implementation under review.
+- **root** — global authority, synthesis, evidence-lock grantor, final acceptance;
+  work class `control`.
+- **peer** — read-only discovery or independent challenge; work class `scout` or
+  `challenge`; no coworker control or final high-impact claim promotion.
+- **implementer** — bounded write scope and acceptance contract; work class
+  `mechanical` or `ambiguous`; cannot approve its own high-impact change.
 
 Do not create roles merely to reduce prompting. Monitoring is deliberately not a coworker role: keep it in the root or harness. A role is useful only when capability, write scope, epistemic status, and conflict-of-interest boundary are explicit.
 
 ## Task packet
 
-Every worker receives canonical text containing:
+Every coworker receives canonical text containing:
 
 - `task_id` and parent decision or plan reference;
 - requested outcome and open question;
@@ -58,7 +59,7 @@ Every worker receives canonical text containing:
 
 For review work, provide the receipt and source snapshot, not the author's persuasive narrative.
 
-## Worker receipt
+## Coworker receipt
 
 A decision-lossless receipt includes:
 

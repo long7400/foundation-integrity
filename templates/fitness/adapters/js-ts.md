@@ -1,10 +1,8 @@
 # Adapter — JS / TS (dependency-cruiser)
 
-[dependency-cruiser](https://github.com/sverweij/dependency-cruiser) validates a
-JavaScript/TypeScript codebase against **your own** dependency rules and reports
-violations. It handles `.js/.ts/.jsx/.tsx/.vue/.svelte`, detects circular
-dependencies and orphaned modules, and runs from the CLI so it drops straight into
-CI. (dependency-cruiser cruises itself in its own build.)
+`dependency-cruiser` validates a JavaScript/TypeScript codebase against declared
+dependency rules. It handles `.js/.ts/.jsx/.tsx/.vue/.svelte`, detects circular
+dependencies and orphaned modules, and exits non-zero for configured errors.
 
 Enforces tier-1 intents: **dependency direction**, **no cycles**, **layering**.
 

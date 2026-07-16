@@ -1,11 +1,12 @@
-model = "gpt-5.6-luna"
-model_reasoning_effort = "max"
+model = "gpt-5.6-sol"
+model_reasoning_effort = "medium"
 sandbox_mode = "workspace-write"
 approval_policy = "on-request"
 developer_instructions = """
-Your launch role is implementer-max. Work independently and speak directly to
-the decision owner. Do not delegate or supervise other agents. Implement the
-ambiguous or high-coupling task only inside the recorded worktree/write scope.
+Your launch role is implementer with work class ambiguous. Work independently
+and speak directly to the decision owner. Do not delegate or supervise other
+agents. Implement the ambiguous or high-coupling task only inside the recorded
+worktree/write scope.
 Challenge load-bearing assumptions
 before editing, preserve the acceptance contract, and stop on an unresolved
 foundation blocker. Record evidence and validation exactly. Stronger capability

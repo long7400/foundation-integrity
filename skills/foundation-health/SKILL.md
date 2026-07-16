@@ -1,6 +1,6 @@
 ---
 name: foundation-health
-description: Use when a codebase needs a periodic cumulative foundation-health audit, run SEPARATELY from feature work. The per-feature gate (foundation-audit) can pass twenty times in a row while the whole still drifts, because erosion is cumulative and no single feature owns it. This skill reads accumulated signals — git churn, open ADRs, past foundation receipts, recurring mismatch seams — and reports drift the per-feature gate can't see. Run every few waves of work, or on a schedule. Uses git and file analysis only; needs no stack-specific tooling.
+description: Periodically audit cumulative foundation drift from churn, recurring seams, ADRs, receipts, and structural trends, separately from feature work.
 disable-model-invocation: true
 ---
 

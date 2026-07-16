@@ -1,6 +1,6 @@
 ---
 name: adversarial-foundation-review
-description: Use when an observable foundation-surface, mismatch, or fitness trigger fires, or for a high-impact FOUNDATION_SUSPECT or FOUNDATION_BLOCKED call, to obtain an independent adversarial second opinion on a foundation-audit decision. Run this in a SEPARATE session from the one doing the work — its only job is to REFUTE the audit's foundation claim and chosen route, not to help ship, before a decision gets frozen into a public API, schema, migration, or durable data. Closes the "the agent that wants to ship also grades its own foundation" conflict of interest.
+description: In a fresh independent session, try to refute a triggered foundation decision, its evidence, route, and cheapest fake-pass before durable work is accepted.
 disable-model-invocation: true
 ---
 
