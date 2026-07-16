@@ -56,10 +56,14 @@ for runtime_root, include_openai in ((claude, False), (codex, True)):
         raise SystemExit(f"runtime projection content drift: {runtime_root}")
 
 for skill_root in (canonical, claude, codex):
-    for path in skill_root.rglob("SKILL.md"):
+    for path in skill_root.rglob("*"):
+        if not path.is_file() or path.suffix not in {".md", ".yaml", ".yml", ".txt", ".toml"}:
+            continue
         body = path.read_text()
         for stale in (
             "templates/claude-md-block.md",
+            "templates/adr/",
+            "templates/docs/",
             "templates/fitness/",
             "templates/hooks/",
             ".foundation-integrity/hooks/",
@@ -89,6 +93,10 @@ if not required_ignores.issubset(set(ignore)):
 agents_template = root / "templates/setup/AGENTS.md"
 if not agents_template.is_file() or len(agents_template.read_bytes()) > 4000:
     raise SystemExit("generic AGENTS.md is missing or exceeds its compact budget")
+
+foundation_convention = (root / "docs/agents/foundation.md").read_text()
+if "When `AGENTS.md` is absent, installation creates a short consumer-neutral" not in foundation_convention:
+    raise SystemExit("repository foundation convention misstates the AGENTS.md bootstrap lifecycle")
 
 codex_hooks = (root / "templates/hooks/codex-hooks.json").read_text()
 claude_hooks = (root / "templates/hooks/claude-settings.json").read_text()

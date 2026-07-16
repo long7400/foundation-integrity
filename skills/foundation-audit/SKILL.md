@@ -132,8 +132,8 @@ Escalate to `adversarial-foundation-review` — a separate session whose only jo
 
 An audit is a *reasoning* check; its honesty is its weak point. Where a real code stack exists, back it with **machine-measured** fitness checks so structural violations trip mechanically, with no good-faith required. The intents (tech-neutral): dependency direction holds, no new cycles, no duplicated domain type, complexity under a ceiling, no new change-coupling across module boundaries, layering respected. A claim rated `OK` should point at the check that enforces it, not just at your confidence. The optional guidance under `docs/foundation/fitness/` and the selected runtime's hook scripts are the wiring surface; no second setup skill is required. Green fitness checks are necessary, not sufficient: they prove no rule broke, not that the design is right.
 
-Choose evidence by the claim being made, not by ritual. Use the
-the adopted file `docs/foundation/fitness/proof-surface-selection.md` to
+Choose evidence by the claim being made, not by ritual. Use the adopted file
+`docs/foundation/fitness/proof-surface-selection.md` to
 select a repro, contract test, validator, benchmark, runtime observation, visual
 check, or owner-boundary proof that can falsify the claim and survive harmless
 internal refactors.
