@@ -108,7 +108,7 @@ Exactly one:
 - **`FOUNDATION_SUSPECT`** — at least one claim is shaky, or a mismatch signal fired and you couldn't fully clear it. Proceed only with a named seam and eyes open.
 - **`FOUNDATION_BLOCKED`** — building now would violate an invariant or trust boundary, create a second source of truth, require repeated exceptions, or materially entrench a known mismatch. Or a load-bearing fact is unknown and unresolved.
 
-**The default is not OK.** A load-bearing claim rated `OK` must cite the **artifact** that broke the attempt to falsify it — the exact diff, commit, test run, or runtime observation. A claim with no attached primary evidence is `SUSPECT` by default, not OK. This is deliberate: your own confidence is the least trustworthy input here — the same self-preference that makes you rate familiar output highly (arXiv 2410.21819) makes "I'm sure it's fine" worthless as evidence. "It looks right" is prose; a passing contract test or a cited invariant is an artifact. Grade on artifacts.
+**The default is not OK.** A load-bearing claim rated `OK` must cite the **artifact** that broke the attempt to falsify it — the exact diff, commit, test run, or runtime observation. A claim with no attached primary evidence is `SUSPECT` by default, not OK. This is deliberate: the session's confidence is the least trustworthy input, so "I'm sure it's fine" is worthless as evidence. "It looks right" is prose; a passing contract test or a cited invariant is an artifact. Grade on artifacts.
 
 `FOUNDATION_OK` is not an implementation permit by itself: the outcome must also be `PROCEED`, and any observable foundation-surface trigger still requires the independent review.
 
@@ -130,7 +130,7 @@ Escalate to `adversarial-foundation-review` — a separate session whose only jo
 
 ## Fitness checks — put the hidden variable into the objective
 
-An audit is a *reasoning* check; its honesty is its weak point. Where a real code stack exists, back it with **machine-measured** fitness checks so structural violations trip mechanically, with no good-faith required. The intents (tech-neutral): dependency direction holds, no new cycles, no duplicated domain type, complexity under a ceiling, no new change-coupling across module boundaries, layering respected. A claim rated `OK` should point at the check that enforces it, not just at your confidence. The optional guidance under `docs/foundation/fitness/` and the managed hook scripts are the wiring surface; no second setup skill is required. Green fitness checks are necessary, not sufficient: they prove no rule broke, not that the design is right.
+An audit is a *reasoning* check; its honesty is its weak point. Where a real code stack exists, back it with **machine-measured** fitness checks so structural violations trip mechanically, with no good-faith required. The intents (tech-neutral): dependency direction holds, no new cycles, no duplicated domain type, complexity under a ceiling, no new change-coupling across module boundaries, layering respected. A claim rated `OK` should point at the check that enforces it, not just at your confidence. The optional guidance under `docs/foundation/fitness/` and the selected runtime's hook scripts are the wiring surface; no second setup skill is required. Green fitness checks are necessary, not sufficient: they prove no rule broke, not that the design is right.
 
 Choose evidence by the claim being made, not by ritual. Use the
 the adopted file `docs/foundation/fitness/proof-surface-selection.md` to

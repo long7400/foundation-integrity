@@ -30,7 +30,7 @@ Use whatever signals the repo already has. All of these are available from `git`
 
 ## Trend, not snapshot — the OOD-drift proxy
 
-You cannot measure directly whether "the agent is getting dumber" — that would need the model's perplexity over the codebase, which most runtimes don't expose. Don't claim to. What you *can* do is **trend the signals above over time**: rising cross-boundary coupling, rising churn on the same hotspots, rising workaround-marker density, rising blast radius. That upward slope is the honest, portable proxy for "the codebase is drifting away from clean, idiomatic structure" — the same drift that pushes it out-of-distribution for the model and degrades its reasoning (the mechanism behind self-preference/perplexity effects, [arXiv 2410.21819](https://arxiv.org/abs/2410.21819)). One reading is noise; the slope is the signal. This skill *prevents* deformation by catching the trend early — it does not claim to *measure* model capability.
+You cannot measure directly whether "the agent is getting dumber" — that would need the model's perplexity over the codebase, which most runtimes don't expose. Don't claim to. What you *can* do is **trend the signals above over time**: rising cross-boundary coupling, rising churn on the same hotspots, rising workaround-marker density, rising blast radius. That upward slope is the honest, portable proxy for "the codebase is drifting away from clean, idiomatic structure." One reading is noise; the slope is the signal. This skill *prevents* deformation by catching the trend early — it does not claim to *measure* model capability.
 
 ## What to produce
 

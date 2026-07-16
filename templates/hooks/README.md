@@ -29,16 +29,25 @@ expecting the Codex wiring to run. See the official
 [Codex Hooks documentation](https://learn.chatgpt.com/docs/hooks) for the current
 event, matcher, stdin, and exit-status contract.
 
-All configs invoke the **same managed scripts** installed under
-`.foundation-integrity/hooks/` — one implementation, three wirings. The Codex file
-is a real project hook definition, not an inert TOML fragment.
+All configs invoke the managed scripts installed at the selected runtime owner:
+`.codex/hooks/scripts/` for Codex or `.claude/hooks/scripts/` for Claude. The source
+of truth remains `templates/hooks/scripts/`; the installed copies are runtime
+payload, while the git hook loader keeps the enforcement runtime-neutral. The Codex
+file is a real project hook definition, not an inert TOML fragment.
+
+For a both-runtime adoption, `.foundation-integrity/adoption.tsv` records `runtime=both`.
+The git loader requires the shared Codex and Claude copies to be byte-identical, then
+uses the Codex copy as the explicit git authority. Pre-commit warns and returns; the
+blocking pre-push fails closed when either copy is missing or they diverge. A missing,
+invalid, or runtime/path-mismatched adoption ledger follows the same posture:
+pre-commit warns, while pre-push blocks rather than guessing another owner.
 
 ## The managed scripts
 
-- `.foundation-integrity/hooks/fitness-check.sh` — run the wired tier-3 adapter (if
+- `<runtime>/hooks/scripts/fitness-check.sh` — run the wired tier-3 adapter (if
   any) plus a cheap tier-2 delta. Non-zero exit = a structural rule broke. Fast; safe
   to run on every edit/commit.
-- `.foundation-integrity/hooks/foundation-surface-guard.sh` — did this
+- `<runtime>/hooks/scripts/foundation-surface-guard.sh` — did this
   change touch a **foundation-surface** path (public API, schema, migration, auth,
   core domain, shared module) without a **valid v2 receipt in the same change set that
   names that exact path**? (Receipt format: [`review-receipt.md`](./review-receipt.md);
@@ -68,7 +77,7 @@ and a disabled hook is **worse than none** (it reads as safety that isn't there)
 Therefore:
 
 - Scope every hook to **foundation-surface paths only** (configured in
-  `.foundation-integrity/hooks/foundation-surface.txt`). Edits elsewhere pass silently.
+  `<runtime>/hooks/scripts/foundation-surface.txt`). Edits elsewhere pass silently.
 - Default posture is **warn**, not block. Blocking (`exit 2` in Claude, non-zero in
   git) is opt-in, and only for the surface-guard on a pre-push — never on every keystroke.
 - The pre-commit stays fast (delta only). Full fitness runs on pre-push / CI.

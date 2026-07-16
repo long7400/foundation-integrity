@@ -1,5 +1,8 @@
 # BEGIN foundation-integrity generated state
 .foundation/
+.orchestration/
+.codex/
+.agents/
 docs/research/
 tmp/
 docs/adr/*.md

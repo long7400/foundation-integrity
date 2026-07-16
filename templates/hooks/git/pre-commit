@@ -9,10 +9,43 @@
 # Install: copy to .git/hooks/pre-commit and `chmod +x`, or point core.hooksPath at
 # the dir holding this file. Keep the wiring explicit and reviewable.
 #
-# Adjust the path below if you vendored the scripts elsewhere.
 set -eu
 root=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-DIR="$root/.foundation-integrity/hooks"
+DIR=
+runtime=$(awk -F '\t' '$1 == "setting" && $2 == "runtime" { print $3; exit }' \
+  "$root/.foundation-integrity/adoption.tsv" 2>/dev/null || true)
+case "$runtime" in
+  codex)
+    DIR=$root/.codex/hooks/scripts
+    ;;
+  claude)
+    DIR=$root/.claude/hooks/scripts
+    ;;
+  both)
+    codex_dir=$root/.codex/hooks/scripts
+    claude_dir=$root/.claude/hooks/scripts
+    if [ ! -x "$codex_dir/foundation-surface-guard.sh" ] \
+      || [ ! -x "$claude_dir/foundation-surface-guard.sh" ]; then
+      printf '%s\n' "foundation-integrity: both-runtime hook copies are incomplete; refusing git checks" >&2
+      exit 0
+    fi
+    for shared in foundation-surface.txt foundation-surface-guard.sh fitness-check.sh; do
+      if ! cmp -s "$codex_dir/$shared" "$claude_dir/$shared"; then
+        printf '%s\n' "foundation-integrity: both-runtime hook copies diverged; refusing git checks" >&2
+        exit 0
+      fi
+    done
+    DIR=$codex_dir
+    ;;
+  *)
+    printf '%s\n' "foundation-integrity: adoption ledger has no valid runtime owner; skipping warn-only git checks" >&2
+    exit 0
+    ;;
+esac
+if [ ! -x "$DIR/foundation-surface-guard.sh" ] || [ ! -x "$DIR/fitness-check.sh" ]; then
+  printf '%s\n' "foundation-integrity: recorded runtime hook scripts are incomplete; skipping warn-only git checks" >&2
+  exit 0
+fi
 cd "$root"
 
 # Surface-guard: warn if a foundation-surface file changed with no valid receipt. Warn only

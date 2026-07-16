@@ -5,7 +5,8 @@ non-trivial feature, module, migration, refactor, or security/reliability/perfor
 change, falsify the load-bearing foundation claims first.
 
 The canonical operating rules live in the consumer's existing `AGENTS.md` or
-`CLAUDE.md`; installation never creates, merges, replaces, or claims either file.
+`CLAUDE.md`. When `AGENTS.md` is absent, installation creates a short consumer-neutral
+one; an existing instruction file is never modified or claimed.
 The three reusable project references are
 `docs/foundation/foundation-audit.md`,
 `docs/foundation/foundation-pattern-language.md`, and

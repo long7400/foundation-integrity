@@ -13,16 +13,8 @@ Usage:
   sh templates/setup/full-opt.sh --runtime codex|claude|both [options] TARGET
 
 Options:
-  --core                            Install skills, the generated ignore block, four
-                                    project conventions, compact foundation docs, and
-                                    the local ADR template.
-  --full-opt                        Add fitness guidance, active project hooks, and
-                                    inert orchestration policy (default).
-  --with-fitness                    Add optional fitness guidance under docs/.
-  --with-hooks                      Install shared hook scripts plus project-scoped
-                                    runtime configuration for the selected runtime(s).
-  --with-orchestration              Add inert coworker policy and only the selected
-                                    runtime profile subtree.
+  --full-opt                        Accepted for clarity. Full-opt is the only
+                                    supported payload and is always selected.
   --dry-run                         Preview the complete effects ledger only.
   --no-pre-commit                   Do not newly wire the warn-only hook. On an upgrade,
                                     an unchanged hook already owned by the adoption lock
@@ -30,9 +22,10 @@ Options:
   --with-pre-push                   Also wire the explicit blocking pre-push hook.
   -h, --help                        Show this help.
 
-The target directory must already exist. AGENTS.md and CLAUDE.md are never created or
-modified; the consumer's current contents remain authoritative. Existing differing
-project files are reported as conflicts and are never overwritten. Existing
+The target directory must already exist. A short, consumer-neutral AGENTS.md is created
+only when the target has no AGENTS.md; existing AGENTS.md and CLAUDE.md files remain
+project-owned and are never modified. Existing differing project files are reported as
+conflicts and are never overwritten. Existing
 .codex/hooks.json or .claude/settings.json files must be reconciled explicitly rather
 than black-box merged. A pre-existing custom pre-commit hook is preserved; an
 explicitly requested pre-push conflict is a hard stop. Preflight-detected conflicts
@@ -134,26 +127,9 @@ test_interrupt() {
 runtime=
 target=
 dry_run=0
-preset=full-opt
-preset_seen=
-with_fitness=0
-with_hooks=0
-with_orchestration=0
-install_fitness=0
-install_hooks=0
-install_orchestration=0
 pre_commit_disabled=0
 install_pre_commit=0
 install_pre_push=0
-
-set_preset() {
-  requested=$1
-  if [ -n "$preset_seen" ] && [ "$preset_seen" != "$requested" ]; then
-    die "choose only one of --core or --full-opt"
-  fi
-  preset=$requested
-  preset_seen=$requested
-}
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -162,25 +138,11 @@ while [ "$#" -gt 0 ]; do
       runtime=$2
       shift 2
       ;;
-    --core)
-      set_preset core
-      shift
-      ;;
     --full-opt)
-      set_preset full-opt
       shift
       ;;
-    --with-fitness)
-      with_fitness=1
-      shift
-      ;;
-    --with-hooks)
-      with_hooks=1
-      shift
-      ;;
-    --with-orchestration)
-      with_orchestration=1
-      shift
+    --core|--with-fitness|--with-hooks|--with-orchestration)
+      die "$1 is not supported; full-opt is the only payload"
       ;;
     --dry-run)
       dry_run=1
@@ -191,7 +153,6 @@ while [ "$#" -gt 0 ]; do
       shift
       ;;
     --with-pre-push)
-      with_hooks=1
       install_pre_push=1
       shift
       ;;
@@ -208,22 +169,10 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
-[ "$preset" != full-opt ] || {
-  install_fitness=1
-  install_hooks=1
-  install_orchestration=1
-}
-[ "$with_fitness" = 0 ] || install_fitness=1
-[ "$with_hooks" = 0 ] || install_hooks=1
-[ "$with_orchestration" = 0 ] || install_orchestration=1
-
-if [ "$install_hooks" = 1 ] && [ "$pre_commit_disabled" = 0 ]; then
+[ "$pre_commit_disabled" = 1 ] || {
   install_pre_commit=1
-fi
-components=core
-[ "$install_fitness" = 0 ] || components=$components,fitness
-[ "$install_hooks" = 0 ] || components=$components,hooks
-[ "$install_orchestration" = 0 ] || components=$components,orchestration
+}
+components=full-opt
 
 case "$runtime" in codex|claude|both) ;; *) die "--runtime codex|claude|both is required" ;; esac
 [ -n "$target" ] || die "TARGET is required"
@@ -275,6 +224,9 @@ stage=$tmp/stage
 manifest=$tmp/manifest.tsv
 managed_skill_roots=$tmp/managed-skill-roots
 tab=$(printf '\t')
+codex_hook_root=.codex/hooks/scripts
+claude_hook_root=.claude/hooks/scripts
+git_hook_stage_root=
 mkdir -p "$stage"
 : > "$manifest"
 : > "$managed_skill_roots"
@@ -336,8 +288,12 @@ case "$runtime" in
     ;;
 esac
 
-# Project conventions. Enumerate exactly four consumer files so a future repository-
-# only document cannot silently enter the adoption payload.
+# Project conventions. Enumerate exactly four consumer docs so a future repository-
+# only document cannot silently enter the adoption payload. AGENTS.md is a separate,
+# conditional bootstrap instruction file.
+if [ ! -e "$target/AGENTS.md" ] && [ ! -L "$target/AGENTS.md" ]; then
+  stage_file "$source_root/templates/setup/AGENTS.md" AGENTS.md
+fi
 stage_file "$source_root/docs/agents/domain.md" docs/agents/domain.md
 stage_file "$source_root/docs/agents/triage-labels.md" docs/agents/triage-labels.md
 stage_file "$source_root/templates/setup/docs-agents-foundation.md" docs/agents/foundation.md
@@ -375,30 +331,43 @@ stage_file "$source_root/docs/foundation/foundation-audit.md" docs/foundation/fo
 stage_file "$source_root/docs/foundation/foundation-pattern-language.md" docs/foundation/foundation-pattern-language.md
 stage_file "$source_root/docs/foundation/why-foundation-integrity.md" docs/foundation/why-foundation-integrity.md
 
-[ "$install_fitness" = 0 ] \
-  || stage_tree "$source_root/templates/fitness" docs/foundation/fitness
+stage_tree "$source_root/templates/fitness" docs/foundation/fitness
 
-if [ "$install_hooks" = 1 ]; then
-  stage_file "$source_root/templates/hooks/README.md" docs/foundation/hooks.md
-  stage_file "$source_root/templates/hooks/review-receipt.md" docs/foundation/review-receipt.md
-  stage_file "$source_root/templates/hooks/foundation-surface.txt" .foundation-integrity/hooks/foundation-surface.txt
-  stage_tree "$source_root/templates/hooks/scripts" .foundation-integrity/hooks
-  stage_tree "$source_root/templates/hooks/git" .foundation-integrity/hooks/git
-  find "$stage/.foundation-integrity/hooks" -type f -name '*.sh' -exec chmod 755 {} \;
-  find "$stage/.foundation-integrity/hooks/git" -type f -exec chmod 755 {} \;
-  case "$runtime" in
-    codex)
-      stage_file "$source_root/templates/hooks/codex-hooks.json" .codex/hooks.json
-      ;;
-    claude)
-      stage_file "$source_root/templates/hooks/claude-settings.json" .claude/settings.json
-      ;;
-    both)
-      stage_file "$source_root/templates/hooks/codex-hooks.json" .codex/hooks.json
-      stage_file "$source_root/templates/hooks/claude-settings.json" .claude/settings.json
-      ;;
-  esac
-fi
+stage_runtime_hook_scripts() {
+  hook_root=$1
+  stage_file "$source_root/templates/hooks/foundation-surface.txt" "$hook_root/foundation-surface.txt"
+  stage_tree "$source_root/templates/hooks/scripts" "$hook_root"
+}
+
+stage_git_hook_scripts() {
+  hook_root=$1
+  stage_tree "$source_root/templates/hooks/git" "$hook_root/git"
+}
+
+stage_file "$source_root/templates/hooks/README.md" docs/foundation/hooks.md
+stage_file "$source_root/templates/hooks/review-receipt.md" docs/foundation/review-receipt.md
+case "$runtime" in
+  codex)
+    stage_runtime_hook_scripts "$codex_hook_root"
+    stage_git_hook_scripts "$codex_hook_root"
+    git_hook_stage_root=$codex_hook_root
+    stage_file "$source_root/templates/hooks/codex-hooks.json" .codex/hooks.json
+    ;;
+  claude)
+    stage_runtime_hook_scripts "$claude_hook_root"
+    stage_git_hook_scripts "$claude_hook_root"
+    git_hook_stage_root=$claude_hook_root
+    stage_file "$source_root/templates/hooks/claude-settings.json" .claude/settings.json
+    ;;
+  both)
+    stage_runtime_hook_scripts "$codex_hook_root"
+    stage_runtime_hook_scripts "$claude_hook_root"
+    stage_git_hook_scripts "$codex_hook_root"
+    git_hook_stage_root=$codex_hook_root
+    stage_file "$source_root/templates/hooks/codex-hooks.json" .codex/hooks.json
+    stage_file "$source_root/templates/hooks/claude-settings.json" .claude/settings.json
+    ;;
+esac
 
 stage_orchestration_contract() {
   selected_runtime=$1
@@ -411,13 +380,12 @@ stage_orchestration_contract() {
   ' "$source_root/templates/orchestration/run-contract.tsv" > "$stage/$destination"
 }
 
-if [ "$install_orchestration" = 1 ]; then
-  for shared in README.md coworker-protocol.md model-role-policy.md pilot-run-receipt.md \
-    role-model-matrix.tsv weak-foundation-benchmark.md; do
-    stage_file "$source_root/templates/orchestration/$shared" ".orchestration/foundation/$shared"
-  done
-  stage_tree "$source_root/templates/orchestration/scripts" .orchestration/foundation/scripts
-  case "$runtime" in
+for shared in README.md coworker-protocol.md model-role-policy.md pilot-run-receipt.md \
+  role-model-matrix.tsv weak-foundation-benchmark.md; do
+  stage_file "$source_root/templates/orchestration/$shared" ".orchestration/foundation/$shared"
+done
+stage_tree "$source_root/templates/orchestration/scripts" .orchestration/foundation/scripts
+case "$runtime" in
     codex)
       stage_file "$source_root/templates/orchestration/runtime/codex.md" \
         .orchestration/foundation/runtime/codex.md
@@ -444,8 +412,7 @@ if [ "$install_orchestration" = 1 ]; then
       stage_orchestration_contract codex .orchestration/foundation/run-contract.codex.tsv
       stage_orchestration_contract claude .orchestration/foundation/run-contract.claude.tsv
       ;;
-  esac
-fi
+esac
 
 marker_count() {
   awk -v marker="$2" '$0 == marker { count++ } END { print count + 0 }' "$1"
@@ -543,8 +510,8 @@ migration_journal_relative=.foundation/migrations/foundation-integrity-v2-v3.tsv
 migration_journal=$target/$migration_journal_relative
 managed_path_allowed() {
   case "$1" in
-    .agents/skills/*|.claude/skills/*|docs/agents/*|docs/adr/0000-template.md|docs/foundation/*|.foundation-integrity/hooks/*|.codex/hooks.json|.claude/settings.json|.orchestration/foundation/*) return 0 ;;
-    templates/adr/*|templates/docs/*|templates/fitness/*|templates/hooks/*|templates/orchestration/*|templates/setup/check-credential-permissions.sh|templates/setup/resolve-instruction-target.sh|CLAUDE.md) return 0 ;;
+    AGENTS.md|.agents/skills/*|.claude/skills/*|docs/agents/*|docs/adr/0000-template.md|docs/foundation/*|.foundation-integrity/hooks/*|.codex/hooks.json|.codex/hooks/scripts/*|.claude/settings.json|.claude/hooks/scripts/*|.orchestration/foundation/*) return 0 ;;
+    templates/adr/*|templates/docs/*|templates/fitness/*|templates/hooks/*|templates/orchestration/*|templates/setup/AGENTS.md|templates/setup/check-credential-permissions.sh|templates/setup/resolve-instruction-target.sh|CLAUDE.md) return 0 ;;
     .git/hooks/pre-commit|.git/hooks/pre-push) return 0 ;;
     *) return 1 ;;
   esac
@@ -996,9 +963,11 @@ if [ -n "$old_adoption" ]; then
     # Instruction files are project-owned in v3. Preserve any v2-managed CLAUDE.md
     # byte-for-byte and transfer its ownership to the project; never remove or
     # rewrite a live instruction path during migration.
-    if [ "$relative" = CLAUDE.md ]; then
+    case "$relative" in
+      AGENTS.md|CLAUDE.md)
       continue
-    fi
+      ;;
+    esac
     destination=$target/$relative
     reject_symlink_parent "$destination"
     if [ -L "$destination" ]; then
@@ -1080,8 +1049,7 @@ desired_action() {
 
 ignore_action=$(desired_action "$ignore_file" "$ignore_desired")
 
-hook_mode=not-selected
-[ "$install_hooks" = 0 ] || hook_mode=project-runtime
+hook_mode=project-runtime
 pre_commit_action=disabled
 pre_push_action=not-installed
 git_hooks_dir=
@@ -1106,12 +1074,16 @@ if [ "$install_pre_commit" = 1 ] || [ "$install_pre_push" = 1 ] \
       if [ ! -e "$git_hooks_dir/pre-commit" ] && [ ! -L "$git_hooks_dir/pre-commit" ]; then
         pre_commit_action=add-warn-only
       elif pending_plan_has_add .git/hooks/pre-commit; then
-        files_match "$stage/.foundation-integrity/hooks/git/pre-commit" "$git_hooks_dir/pre-commit" \
-          || die "v2-ledger-proven pre-commit hook changed before recovery"
-        pre_commit_action=unchanged
+        if files_match "$stage/$git_hook_stage_root/git/pre-commit" "$git_hooks_dir/pre-commit"; then
+          pre_commit_action=unchanged
+        elif matches_old_managed hook .git/hooks/pre-commit "$git_hooks_dir/pre-commit"; then
+          pre_commit_action=update-managed
+        else
+          die "v2-ledger-proven pre-commit hook changed before recovery"
+        fi
       elif [ -L "$git_hooks_dir/pre-commit" ]; then
         pre_commit_action=preserved-existing-hook
-      elif files_match "$stage/.foundation-integrity/hooks/git/pre-commit" "$git_hooks_dir/pre-commit"; then
+      elif files_match "$stage/$git_hook_stage_root/git/pre-commit" "$git_hooks_dir/pre-commit"; then
         if [ -n "$old_pre_commit_hash" ]; then
           pre_commit_action=unchanged
         else
@@ -1126,11 +1098,7 @@ if [ "$install_pre_commit" = 1 ] || [ "$install_pre_push" = 1 ] \
       fi
     elif [ -n "$old_pre_commit_hash" ] \
       && matches_old_managed hook .git/hooks/pre-commit "$git_hooks_dir/pre-commit"; then
-      if [ "$install_hooks" = 0 ]; then
-        pre_commit_action=remove-managed
-      else
-        pre_commit_action=retained-managed-warn-only
-      fi
+      pre_commit_action=retained-managed-warn-only
     elif [ -n "$old_pre_commit_hash" ] && [ -e "$git_hooks_dir/pre-commit" ]; then
       pre_commit_action=preserved-existing-hook
     fi
@@ -1138,12 +1106,16 @@ if [ "$install_pre_commit" = 1 ] || [ "$install_pre_push" = 1 ] \
       if [ ! -e "$git_hooks_dir/pre-push" ] && [ ! -L "$git_hooks_dir/pre-push" ]; then
         pre_push_action=add-blocking
       elif pending_plan_has_add .git/hooks/pre-push; then
-        files_match "$stage/.foundation-integrity/hooks/git/pre-push" "$git_hooks_dir/pre-push" \
-          || die "v2-ledger-proven pre-push hook changed before recovery"
-        pre_push_action=unchanged
+        if files_match "$stage/$git_hook_stage_root/git/pre-push" "$git_hooks_dir/pre-push"; then
+          pre_push_action=unchanged
+        elif matches_old_managed hook .git/hooks/pre-push "$git_hooks_dir/pre-push"; then
+          pre_push_action=update-managed
+        else
+          die "v2-ledger-proven pre-push hook changed before recovery"
+        fi
       elif [ -L "$git_hooks_dir/pre-push" ]; then
         die "existing pre-push hook is a symlink; refusing to replace or claim ownership"
-      elif files_match "$stage/.foundation-integrity/hooks/git/pre-push" "$git_hooks_dir/pre-push"; then
+      elif files_match "$stage/$git_hook_stage_root/git/pre-push" "$git_hooks_dir/pre-push"; then
         if [ -n "$old_pre_push_hash" ]; then
           pre_push_action=unchanged
         else
@@ -1158,11 +1130,7 @@ if [ "$install_pre_commit" = 1 ] || [ "$install_pre_push" = 1 ] \
       fi
     elif [ -n "$old_pre_push_hash" ] \
       && matches_old_managed hook .git/hooks/pre-push "$git_hooks_dir/pre-push"; then
-      if [ "$install_hooks" = 0 ]; then
-        pre_push_action=remove-managed
-      else
-        pre_push_action=retained-managed-blocking
-      fi
+      pre_push_action=retained-managed-blocking
     elif [ -n "$old_pre_push_hash" ] && [ -e "$git_hooks_dir/pre-push" ]; then
       pre_push_action=preserved-existing-hook
     fi
@@ -1182,24 +1150,18 @@ if [ "$adoption_schema" = v2 ]; then
     fi
   done < "$tmp/staged-files"
   while IFS= read -r relative; do
-    [ "$relative" = CLAUDE.md ] && continue
+    case "$relative" in
+      AGENTS.md|CLAUDE.md) continue ;;
+    esac
     [ -f "$stage/$relative" ] && continue
     printf 'remove\t%s\t%s\t%s\n' \
       "$(old_managed_hash file "$relative")" "$(old_managed_mode "$relative")" "$relative" >> "$migration_plan"
   done < "$tmp/old-managed-paths"
-  if [ -n "$old_pre_commit_hash" ] && [ "$install_hooks" = 0 ]; then
-    printf 'remove\t%s\t%s\t.git/hooks/pre-commit\n' \
-      "$old_pre_commit_hash" "$(old_managed_mode .git/hooks/pre-commit)" >> "$migration_plan"
-  fi
-  if [ -n "$old_pre_push_hash" ] && [ "$install_hooks" = 0 ]; then
-    printf 'remove\t%s\t%s\t.git/hooks/pre-push\n' \
-      "$old_pre_push_hash" "$(old_managed_mode .git/hooks/pre-push)" >> "$migration_plan"
-  fi
   case "$pre_commit_action" in
     add-warn-only|update-managed|unchanged)
       if [ "$pre_commit_action" != unchanged ] || pending_plan_has_add .git/hooks/pre-commit; then
         printf 'add\t%s\t755\t.git/hooks/pre-commit\n' \
-          "$(sha256_file "$stage/.foundation-integrity/hooks/git/pre-commit")" >> "$migration_plan"
+          "$(sha256_file "$stage/$git_hook_stage_root/git/pre-commit")" >> "$migration_plan"
       fi
       ;;
   esac
@@ -1207,7 +1169,7 @@ if [ "$adoption_schema" = v2 ]; then
     add-blocking|update-managed|unchanged)
       if [ "$pre_push_action" != unchanged ] || pending_plan_has_add .git/hooks/pre-push; then
         printf 'add\t%s\t755\t.git/hooks/pre-push\n' \
-          "$(sha256_file "$stage/.foundation-integrity/hooks/git/pre-push")" >> "$migration_plan"
+          "$(sha256_file "$stage/$git_hook_stage_root/git/pre-push")" >> "$migration_plan"
       fi
       ;;
   esac
@@ -1237,14 +1199,14 @@ printf 'ignore-block\t%s\t.gitignore\n' "$ignore_block_hash" >> "$payload_record
 case "$pre_commit_action" in
   add-warn-only|unchanged|update-managed|retained-managed-warn-only)
     printf 'hook\t%s\t.git/hooks/pre-commit\n' \
-      "$(sha256_file "$stage/.foundation-integrity/hooks/git/pre-commit")" >> "$payload_records"
+      "$(sha256_file "$stage/$git_hook_stage_root/git/pre-commit")" >> "$payload_records"
     printf 'mode\t755\t.git/hooks/pre-commit\n' >> "$payload_records"
     ;;
 esac
 case "$pre_push_action" in
   add-blocking|unchanged|update-managed|retained-managed-blocking)
     printf 'hook\t%s\t.git/hooks/pre-push\n' \
-      "$(sha256_file "$stage/.foundation-integrity/hooks/git/pre-push")" >> "$payload_records"
+      "$(sha256_file "$stage/$git_hook_stage_root/git/pre-push")" >> "$payload_records"
     printf 'mode\t755\t.git/hooks/pre-push\n' >> "$payload_records"
     ;;
 esac
@@ -1310,7 +1272,7 @@ printf '  project files: %s add, %s managed update, %s managed removal, %s manag
   "$adds" "$updates" "$removals" "$unchanged" "$external_identical" "$conflicts"
 printf '  external-identical files: verified but not claimed for future update/removal\n'
 printf '  managed skill directories: %s ledger-implied empty removal\n' "$directory_removals"
-printf '  instructions: preserved; AGENTS.md and CLAUDE.md are never managed\n'
+printf '  instructions: generic AGENTS.md created only when absent; existing AGENTS.md and CLAUDE.md preserved\n'
 if [ "$adoption_schema" = v2 ]; then
   printf '  legacy instruction ownership: preserve bytes and transfer to project (%s)\n' \
     "$old_instruction_target"
@@ -1327,18 +1289,13 @@ printf '  docs/agents: four files; tracker customized from origin when possible\
 printf '  project layout: no templates copied; legacy v2 files retire only when owned (empty directories are preserved)\n'
 printf '  git pre-commit: %s (warn-only when added)\n' "$pre_commit_action"
 printf '  git pre-push: %s (blocking only when explicitly requested)\n' "$pre_push_action"
-if [ "$install_hooks" = 1 ]; then
-  printf '  runtime hooks: project-scoped config installed for %s; existing config is never merged or overwritten\n' "$runtime"
-  printf '  Codex trust: project hooks remain skipped until reviewed/trusted with /hooks\n'
-else
-  printf '  runtime hooks: not selected\n'
+printf '  runtime hooks: project-scoped config installed for %s; existing config is never merged or overwritten\n' "$runtime"
+if [ "$runtime" = both ]; then
+  printf '  git hook authority: adoption ledger selects the byte-identical Codex copy; pre-push blocks on divergence\n'
 fi
-if [ "$install_orchestration" = 1 ]; then
-  printf '  orchestration: static policy at .orchestration/foundation; only %s runtime profiles selected\n' "$runtime"
-  printf '  orchestration state: .foundation/orchestration remains ignored and is not created\n'
-else
-  printf '  orchestration: not selected\n'
-fi
+printf '  Codex trust: project hooks remain skipped until reviewed/trusted with /hooks\n'
+printf '  orchestration: static policy at .orchestration/foundation; only %s runtime profiles selected\n' "$runtime"
+printf '  orchestration state: .foundation/orchestration remains ignored and is not created\n'
 printf '  research payload: none copied; docs/research remains ignored working state\n'
 printf '  source-only merge template: the gitignore block is not duplicated\n'
 printf '  adoption lock: %s -> %s (source ref/revision, components, payload digest, managed hashes/modes)\n' \
@@ -1474,7 +1431,7 @@ if [ "$pre_commit_action" = add-warn-only ] || [ "$pre_commit_action" = update-m
       || die "pre-commit changed after preflight; refusing managed update"
   fi
   mkdir -p "$git_hooks_dir"
-  cp -p "$stage/.foundation-integrity/hooks/git/pre-commit" "$git_hooks_dir/pre-commit"
+  cp -p "$stage/$git_hook_stage_root/git/pre-commit" "$git_hooks_dir/pre-commit"
   chmod +x "$git_hooks_dir/pre-commit"
 fi
 if [ "$pre_commit_action" = remove-managed ]; then
@@ -1491,7 +1448,7 @@ if [ "$pre_push_action" = add-blocking ] || [ "$pre_push_action" = update-manage
       || die "pre-push changed after preflight; refusing managed update"
   fi
   mkdir -p "$git_hooks_dir"
-  cp -p "$stage/.foundation-integrity/hooks/git/pre-push" "$git_hooks_dir/pre-push"
+  cp -p "$stage/$git_hook_stage_root/git/pre-push" "$git_hooks_dir/pre-push"
   chmod +x "$git_hooks_dir/pre-push"
 fi
 if [ "$pre_push_action" = remove-managed ]; then

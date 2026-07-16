@@ -25,7 +25,8 @@ audit self-rated SUSPECT/BLOCKED" — but that's circular: an agent with complet
 rates its own work `FOUNDATION_OK` precisely so it can proceed, and then the review
 never fires. There's a measured mechanism behind that bias, not just laziness: LLM
 judges score their own familiar output higher (lower perplexity reads as "better")
-— [Self-Preference Bias in LLM-as-a-Judge, arXiv 2410.21819](https://arxiv.org/abs/2410.21819).
+A fresh session matters because familiar output is easier to approve than to refute;
+that is a review-risk, not a reason to load an external paper or repository template.
 A model grading its own fresh wrapper is grading the most familiar thing it has seen.
 
 So the trigger is **an observable condition**, independent of what the audit rated

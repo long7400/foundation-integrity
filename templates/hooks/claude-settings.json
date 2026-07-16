@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "sh -c 'sh \"$(git rev-parse --show-toplevel)/.foundation-integrity/hooks/foundation-surface-guard.sh\"'"
+            "command": "sh -c 'sh \"$(git rev-parse --show-toplevel)/.claude/hooks/scripts/foundation-surface-guard.sh\"'"
           }
         ]
       }
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "sh -c 'FI_DELTA_ONLY=1 sh \"$(git rev-parse --show-toplevel)/.foundation-integrity/hooks/fitness-check.sh\"'"
+            "command": "sh -c 'FI_DELTA_ONLY=1 sh \"$(git rev-parse --show-toplevel)/.claude/hooks/scripts/fitness-check.sh\"'"
           }
         ]
       }

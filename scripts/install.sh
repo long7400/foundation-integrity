@@ -16,16 +16,9 @@ Runtime (choose exactly one):
   --both                   Install both projections.
 
 Payload:
-  --core                   Skills + ignore block + four project conventions
-                           + compact foundation docs + local ADR template. Default.
-  --full-opt               Core + fitness guidance + active project hooks
-                           + inert orchestration policy.
-  --with-fitness, --fitness
-                           Add the compact fitness layer.
-  --with-hooks, --hooks    Install project-scoped runtime hooks, shared scripts,
-                           and the warn-only pre-commit.
-  --with-orchestration     Add inert orchestration policy plus selected profiles.
-  --with-pre-push          Add the blocking pre-push hook; implies hooks.
+  --full-opt               Accepted for clarity. Full-opt is the only supported
+                           payload and is always selected.
+  --with-pre-push          Add the blocking pre-push hook.
   --no-pre-commit          Do not newly wire pre-commit.
 
 Source and target:
@@ -37,13 +30,14 @@ Source and target:
 
 Examples:
   curl -fsSL "https://raw.githubusercontent.com/long7400/foundation-integrity/main/scripts/install.sh?$(date +%s)" | bash -s -- --codex
-  curl -fsSL "https://raw.githubusercontent.com/long7400/foundation-integrity/main/scripts/install.sh?$(date +%s)" | bash -s -- --claude --with-fitness
+  curl -fsSL "https://raw.githubusercontent.com/long7400/foundation-integrity/main/scripts/install.sh?$(date +%s)" | bash -s -- --claude --full-opt
   curl -fsSL "https://raw.githubusercontent.com/long7400/foundation-integrity/main/scripts/install.sh?$(date +%s)" | bash -s -- --both --full-opt --dry-run
 
 The bootstrap downloads one resolved repository snapshot into a temporary directory,
 prints the source commit, and calls the project-local adopter. It does not install a
-plugin, change global runtime configuration, alter AGENTS.md/CLAUDE.md, or activate
-orchestration.
+plugin, change global runtime configuration, overwrite an existing AGENTS.md/CLAUDE.md,
+or activate orchestration. The adopter may create a short generic AGENTS.md when the
+target has no AGENTS.md.
 EOF
 }
 
@@ -55,11 +49,6 @@ fail() {
 runtime=""
 target="$PWD"
 ref="main"
-preset="core"
-preset_seen=""
-with_fitness=0
-with_hooks=0
-with_orchestration=0
 with_pre_push=0
 no_pre_commit=0
 dry_run=0
@@ -68,15 +57,6 @@ positional_target=""
 set_runtime() {
   [ -z "$runtime" ] || fail "choose exactly one of --codex, --claude, or --both"
   runtime=$1
-}
-
-set_preset() {
-  local requested=$1
-  if [ -n "$preset_seen" ] && [ "$preset_seen" != "$requested" ]; then
-    fail "choose only one of --core or --full-opt"
-  fi
-  preset=$requested
-  preset_seen=$requested
 }
 
 urlencode_path_segment() {
@@ -104,12 +84,11 @@ while [ "$#" -gt 0 ]; do
     --codex) set_runtime codex; shift ;;
     --claude) set_runtime claude; shift ;;
     --both) set_runtime both; shift ;;
-    --core) set_preset core; shift ;;
-    --full-opt) set_preset full-opt; shift ;;
-    --with-fitness|--fitness) with_fitness=1; shift ;;
-    --with-hooks|--hooks) with_hooks=1; shift ;;
-    --with-orchestration) with_orchestration=1; shift ;;
-    --with-pre-push) with_pre_push=1; with_hooks=1; shift ;;
+    --full-opt) shift ;;
+    --core|--with-fitness|--fitness|--with-hooks|--hooks|--with-orchestration)
+      fail "$1 is not supported; full-opt is the only payload"
+      ;;
+    --with-pre-push) with_pre_push=1; shift ;;
     --no-pre-commit) no_pre_commit=1; shift ;;
     --ref)
       [ "$#" -ge 2 ] || fail "--ref requires a commit, tag, or branch"
@@ -205,15 +184,7 @@ else
   source_tree_state=clean
 fi
 
-args=(--runtime "$runtime")
-if [ "$preset" = full-opt ]; then
-  args+=(--full-opt)
-else
-  args+=(--core)
-fi
-[ "$with_fitness" -eq 0 ] || args+=(--with-fitness)
-[ "$with_hooks" -eq 0 ] || args+=(--with-hooks)
-[ "$with_orchestration" -eq 0 ] || args+=(--with-orchestration)
+args=(--runtime "$runtime" --full-opt)
 [ "$with_pre_push" -eq 0 ] || args+=(--with-pre-push)
 [ "$no_pre_commit" -eq 0 ] || args+=(--no-pre-commit)
 [ "$dry_run" -eq 0 ] || args+=(--dry-run)
@@ -225,7 +196,7 @@ printf '  requested ref: %s\n' "$source_ref"
 printf '  resolved commit: %s\n' "$source_revision"
 printf '  target: %s\n' "$target"
 printf '  runtime: %s\n' "$runtime"
-printf '  preset: %s\n' "$preset"
+printf '  payload: full-opt\n'
 
 FI_SOURCE_REPOSITORY="$source_repository" \
 FI_SOURCE_REF="$source_ref" \

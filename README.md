@@ -32,10 +32,10 @@ Research notes stay local and are never copied into downstream project context.
 | `foundation-health` | Every few waves, separate from feature work | Reads accumulated signals (git churn, open ADRs, past receipts) and reports drift the per-feature gate can't see. |
 
 Plus a **measurement layer** authored in [`templates/fitness/`](./templates/fitness/)
-and [`templates/hooks/`](./templates/hooks/). Project adoption places optional
-fitness guidance under `docs/foundation/fitness/`, executable checks under
-`.foundation-integrity/hooks/`, and runtime wiring in `.codex/hooks.json` or
-`.claude/settings.json`.
+and [`templates/hooks/`](./templates/hooks/). Project adoption places
+fitness guidance under `docs/foundation/fitness/`, executable Codex checks under
+`.codex/hooks/scripts/` (or Claude checks under `.claude/hooks/scripts/`), and
+runtime wiring in `.codex/hooks.json` or `.claude/settings.json`.
 
 The pack also includes an **experimental, opt-in coworker pilot** authored in
 [`templates/orchestration/`](./templates/orchestration/). Adoption projects only the
@@ -75,24 +75,23 @@ directly, run the bootstrap from the target repository. Existing `AGENTS.md` and
 `CLAUDE.md` remain untouched:
 
 ```bash
-# Codex: lightweight core (default)
+# Codex full-opt
 curl -fsSL "https://raw.githubusercontent.com/long7400/foundation-integrity/main/scripts/install.sh?$(date +%s)" \
   | bash -s -- --codex
 
-# Claude: core plus the optional fitness layer
+# Claude full-opt
 curl -fsSL "https://raw.githubusercontent.com/long7400/foundation-integrity/main/scripts/install.sh?$(date +%s)" \
-  | bash -s -- --claude --with-fitness
+  | bash -s -- --claude --full-opt
 
 # Both runtimes: preview the complete inert payload
 curl -fsSL "https://raw.githubusercontent.com/long7400/foundation-integrity/main/scripts/install.sh?$(date +%s)" \
   | bash -s -- --both --full-opt --dry-run
 ```
 
-The remote bootstrap defaults to `--core`; it requires exactly one of `--codex`,
-`--claude`, or `--both`. `--with-fitness` adds optional guidance,
-`--with-hooks` installs active project-scoped runtime hooks plus shared scripts,
-`--with-orchestration` copies inert policy and only the selected runtime profiles,
-and `--full-opt` selects all three. Hooks do not imply the fitness documentation.
+Full-opt is the only supported project payload; the bootstrap requires exactly one
+of `--codex`, `--claude`, or `--both`. `--full-opt` is accepted for clarity but is
+already the default. It always installs fitness guidance, active project hooks, and
+inert orchestration policy for the selected runtime.
 Blocking pre-push remains a separate `--with-pre-push` choice. Use `--directory <repo>` outside the target directory and
 `--ref <tag-or-commit>` to select the payload revision.
 
@@ -200,41 +199,41 @@ they do not replace it.
 ## What installation does—and does not—activate
 
 Plugin installation makes the 24 skills discoverable but does not mutate the
-repository. The one-command project adopter is different: core installs the selected
-skill projection, four `docs/agents/` conventions, three compact foundation docs, the
-local ADR template, and the marked ignore block.
+repository. The one-command project adopter is different: full-opt installs the
+selected skill projection, four `docs/agents/` conventions, compact foundation docs,
+fitness guidance, runtime hooks, inert orchestration policy, the local ADR template,
+and the marked ignore block.
 
-`--with-hooks` installs real project-scoped hook configuration. Codex still requires
-the project and exact hook definitions to be reviewed/trusted through `/hooks`.
-`--with-orchestration` remains inert: it copies policy/profile files but does not open
-panes, install global profiles, or create live state. Neither path edits `AGENTS.md`
-or `CLAUDE.md`.
+Codex still requires the project and exact hook definitions to be reviewed/trusted
+through `/hooks`. Orchestration remains inert: installation copies policy/profile
+files but does not open panes, install global profiles, or create live state.
 
-## Project adoption presets and local adopter
+## Full-opt local adopter
 
-The remote bootstrap calls `templates/setup/full-opt.sh`. The bootstrap defaults to
-the lightweight `core` preset; direct local use retains the historical `full-opt`
-default. Prefer an explicit preset when scripting:
+The remote bootstrap calls `templates/setup/full-opt.sh`. There is one payload:
+full-opt. Runtime selection is the only payload dimension:
 
 ```bash
-sh templates/setup/full-opt.sh --runtime codex --core --dry-run <repo>
-sh templates/setup/full-opt.sh --runtime codex --core <repo>
+sh templates/setup/full-opt.sh --runtime codex --full-opt --dry-run <repo>
+sh templates/setup/full-opt.sh --runtime codex --full-opt <repo>
 sh templates/setup/full-opt.sh --runtime both --full-opt <repo>
 ```
 
 Use `--runtime claude` for Claude only or `--runtime both` for both checked runtime
 projections. Each selected projection contains the same 24 skills.
 
-Core always installs the selected skills and marked ignore block, exactly four
-`docs/agents/` files, three compact foundation docs, and `docs/adr/0000-template.md`.
-Fitness guidance, active hooks, and inert orchestration are additive selections. The
-installer is transparent and idempotent. It:
+Full-opt always installs the selected skills and marked ignore block, exactly four
+`docs/agents/` files, compact foundation docs, fitness guidance, active hooks, inert
+orchestration, and `docs/adr/0000-template.md`. The installer is transparent and
+idempotent. It:
 
 - installs all 24 managed pack skills for each selected runtime while preserving
   unrelated consumer-owned skills outside those managed directories;
-- leaves existing `AGENTS.md` and `CLAUDE.md` byte-for-byte untouched and never
-  creates either instruction file;
-- merges ignore rules for `.foundation/`, `docs/research/`, `tmp/`, and personal
+- creates a short consumer-neutral `AGENTS.md` only when the target has no
+  `AGENTS.md`, while leaving existing `AGENTS.md` and `CLAUDE.md` byte-for-byte
+  untouched;
+- merges ignore rules for `.foundation/`, `.orchestration/`, `.codex/`, `.agents/`,
+  `docs/research/`, `tmp/`, and personal
   numbered ADR history while preserving `docs/adr/0000-template.md`;
 - copies the four `docs/agents/` conventions and customizes the GitHub tracker from
   `origin` when possible;
@@ -246,8 +245,9 @@ installer is transparent and idempotent. It:
   digest-bound pending journal; the still-authoritative v2 adoption lock records the
   exact operation plan and binds that exact journal before mutation, so an unbound or
   planted journal cannot claim an identical project file during recovery;
-- places optional fitness guidance in `docs/foundation/fitness/`;
-- places shared executable hooks in `.foundation-integrity/hooks/`, installs
+- places fitness guidance in `docs/foundation/fitness/`;
+- places executable hooks under the selected runtime's `hooks/scripts/` directory,
+  installs
   `.codex/hooks.json` and/or `.claude/settings.json` for selected runtimes, and refuses
   to black-box merge an existing differing config;
 - places static coworker policy in `.orchestration/foundation/`, copying only the
@@ -299,25 +299,31 @@ transport-neutral coworker boundary remain exactly as the project currently defi
 them. The full orchestration manuals and profiles remain inert until explicitly read
 and activated.
 
-After setup, customize `.foundation-integrity/hooks/foundation-surface.txt`. If
-fitness guidance was selected, adapt the matching rule under
-`docs/foundation/fitness/adapters/`. Hook configuration is already project-scoped;
+After setup, customize the selected runtime's `hooks/scripts/foundation-surface.txt` and
+adapt the matching rule under `docs/foundation/fitness/adapters/`. Hook configuration is already project-scoped;
 existing differing runtime config is a preflight conflict, never a silent merge.
 
 Removal is deliberately ledger-driven rather than a destructive uninstall command:
 verify managed paths and hook hashes from `.foundation-integrity/adoption.tsv`, remove
 only unchanged recorded files/hooks, remove the marked block from `.gitignore`, then
-delete the lock. Instruction files are absent from the ledger. Modified managed files
-require an explicit human decision.
+delete the lock. A newly-created generic `AGENTS.md` may appear in the first adoption
+receipt, but a later run preserves it and transfers further edits to the project.
+Modified managed files require an explicit human decision.
 
 Companion tracker skills expect project-specific `docs/agents/` configuration. If it
 is absent, they report the gap instead of invoking a hidden setup workflow.
 
 ## Local and canonical state
 
-The distribution includes a root `.gitignore` and a reusable marked block that ignore
-all `.foundation/` runtime/process state, per-project `docs/research/` notes, `tmp/`,
-and numbered personal ADR history. `docs/adr/0000-template.md` remains trackable.
+The distribution includes a root `.gitignore` and a reusable marked block that keeps
+consumer-local `.foundation/`, `.orchestration/`, `.codex/`, `.agents/`, per-project
+`docs/research/`, `tmp/`, and numbered personal ADR history out of commits.
+`docs/adr/0000-template.md` remains trackable.
+For full-opt consumers this is deliberate: runtime projections, hook policy, and
+inert orchestration stay local, while the non-ignored
+`.foundation-integrity/adoption.tsv` binds their source revision, hashes, and modes
+for conflict-safe upgrades. Review the pinned source/effects ledger before adoption;
+do not mistake ignored payload for repository-reviewed configuration.
 Plugin managers install
 into their own caches and do not create `docs/research/` or mutate a consumer
 repository's `.gitignore`; standalone skill installs copy only their runtime skill

@@ -62,7 +62,8 @@ instructions.
   runtime-neutral. Default runtime posture is warn, while the explicit pre-push tier
   may block.
 - `templates/` is distribution-authoring input, not a downstream layout. The adopter
-  maps selected assets to `docs/`, `.foundation-integrity/hooks/`, or
+  maps selected assets to `docs/`, the selected runtime hook path
+  (`.codex/hooks/scripts/` and/or `.claude/hooks/scripts/`), or
   `.orchestration/foundation/` and never copies a top-level `templates/` directory.
 - Runtime/process state under `.foundation/` and `tmp/` is never canonical. Local ADR
   history is ignored by default; promote only accepted decision-lossless evidence to
@@ -71,6 +72,10 @@ instructions.
   canonical skills, and both projections must stay in sync.
 - The pack obeys its own doctrine: one source of truth, explicit lifecycle, no
   unverified claim shipped as fact.
+
+- The adopter creates only a short consumer-neutral `AGENTS.md` when a target has no
+  `AGENTS.md`; an existing `AGENTS.md` or `CLAUDE.md` remains project-owned and
+  byte-for-byte untouched.
 
 ## External coworker mode — load only when requested
 

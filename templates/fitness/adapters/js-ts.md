@@ -57,5 +57,5 @@ npx depcruise src --config .dependency-cruiser.js
 # exits non-zero on any 'error'-severity violation → fails the build
 ```
 
-Add the same command to the managed pre-push hook (`.foundation-integrity/hooks/git/`) so it also
+Add the same command to the installer-managed pre-push hook (`.git/hooks/pre-push`) so it also
 fires locally before code leaves the machine.
