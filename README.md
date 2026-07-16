@@ -1,390 +1,366 @@
 # Foundation Integrity
 
-A small set of agent skills that add one thing most workflow skill packs leave out: **a gate that checks the foundation is sound _before_ you build a feature on it** — instead of letting a capable agent bend logic and stack wrappers to make the feature fit a weak foundation.
+**Stop locally correct work from hardening the wrong foundation.**
 
-Works with both **Claude Code** and **OpenAI Codex** as plugins or as native
-repo-local skills. `skills/` is the plugin-authoring source; `.claude/skills/` and
-`.agents/skills/` are checked runtime projections for standalone project installs.
-The distribution also carries a commit-pinned Matt Pocock workflow companion. The
-Foundation Integrity core remains standalone and does not derive its gate or
-coworker protocol from that snapshot.
+Foundation Integrity is a small, dual-runtime engineering gate for Claude Code and
+Codex. It tests ownership, source of truth, lifecycle, trust boundaries, dependency
+direction, and system shape before an agent freezes a feature into code, schemas, or
+durable APIs.
 
-## Why this exists
+Distribution is intentionally shell-only. The adopter is transparent, project-scoped,
+conflict-aware, and does not change global runtime configuration.
 
-Workflow packs (spec → tickets → implement → test → review) optimise *flow*. They assume the foundation is fine and help you move faster on top of it. But "moving fast on a weak foundation" is exactly the machine that manufactures debt:
+## 1. The failure mode
 
-- An agent's objective is "feature works + tests green". Architectural health is a hidden variable — not in the objective, not measured. So a strong agent will happily bend logic and add wrapper-around-wrapper to hit the local objective (Goodhart's Law).
-- Agents have no "aesthetic pain" at ugly structure, and a completion bias that always prefers fitting the existing foundation over stopping to repair it.
-- As the codebase deforms, humans understand it less (and lean on the agent more), and the agent itself gets worse because a deformed codebase is out-of-distribution. A self-accelerating loop.
+Most agent workflows optimize the path from specification to green tests. That is
+useful when the foundation is sound. When it is not, a capable agent can still make
+the feature pass by adding wrappers, parallel authorities, repeated exceptions, or a
+new compatibility layer around a misunderstood owner.
 
-So the reasoning gate alone isn't enough — an agent grading its own foundation hits a measured bias: LLM judges score their own familiar (low-perplexity) output higher ([arXiv 2410.21819](https://arxiv.org/abs/2410.21819)). The pack pairs the reasoning gate with a **measurement layer** — fitness functions and hooks that check structure mechanically, needing no good faith and no one to read the code.
+The local result looks successful while the system gets harder to reason about:
 
-The compact consumer rationale is in
-[`docs/foundation/why-foundation-integrity.md`](./docs/foundation/why-foundation-integrity.md).
-Research notes stay local and are never copied into downstream project context.
+```text
+weak foundation
+    -> locally correct workaround
+    -> more authorities and exceptions
+    -> less human and agent comprehension
+    -> stronger dependence on future workarounds
+```
 
-## What's in the box
+Foundation Integrity inserts a falsification gate before implementation and requires
+proof of the architectural property at risk—not only proof that the feature works.
 
-| Skill | When | What it does |
-| --- | --- | --- |
-| `foundation-audit` | Before building anything non-trivial | Falsify the foundation claims the work depends on. Produces a receipt, a classification (`FOUNDATION_OK` / `SUSPECT` / `BLOCKED`), and a chosen route. |
-| `adversarial-foundation-review` | Any foundation-surface touch, mismatch signal, or regressed fitness check — not only self-rated `SUSPECT`/`BLOCKED` | An independent session (ideally a different model) whose only job is to *refute* the audit's claim — kills the "the agent that wants to ship also grades its own foundation" conflict of interest. |
-| `foundation-health` | Every few waves, separate from feature work | Reads accumulated signals (git churn, open ADRs, past receipts) and reports drift the per-feature gate can't see. |
+## 2. What the pack adds
 
-Plus a **measurement layer** authored in [`templates/fitness/`](./templates/fitness/)
-and [`templates/hooks/`](./templates/hooks/). Project adoption places
-fitness guidance under `docs/foundation/fitness/`, executable Codex checks under
-`.codex/hooks/scripts/` (or Claude checks under `.claude/hooks/scripts/`), and
-runtime wiring in `.codex/hooks.json` or `.claude/settings.json`.
+| Surface | Purpose |
+| --- | --- |
+| `foundation-audit` | Tries to break the load-bearing claims, then records one classification, outcome, and route. |
+| `adversarial-foundation-review` | Gives a fresh independent session the job of finding the strongest counterexample before durable work is accepted. |
+| `foundation-health` | Reviews cumulative drift across receipts, ADRs, churn, compatibility seams, and recurring exceptions. |
+| Fitness guidance | Helps choose tests, contracts, benchmarks, runtime observations, or structural checks that can expose a fake pass. |
+| Runtime and Git hooks | Provide proportional mismatch signals. The default pre-commit posture warns; pre-push blocking is explicit. |
+| Coworker policy | Defines an optional single-root, multi-session workflow with bounded roles, write scopes, and digest-bound evidence. It remains inert until explicitly activated. |
 
-The pack also includes an **experimental, opt-in coworker pilot** authored in
-[`templates/orchestration/`](./templates/orchestration/). Adoption projects only the
-selected runtime profiles and transparent root primitives into
-`.orchestration/foundation/`. Live output stays in the sessions or a root-selected
-temporary directory. The pilot is not a skill, never creates a task-state tree, and
-full-opt never activates it or installs FirstMate.
+The distribution contains exactly 24 skills: three first-party Foundation Integrity
+skills and a 21-skill, commit-pinned workflow companion selected from
+[`mattpocock/skills`](https://github.com/mattpocock/skills). Provenance, hashes,
+license, allowlist, and the local patch ledger live under
+[`third_party/mattpocock-skills/`](./third_party/mattpocock-skills/). The companion
+does not own the foundation gate or coworker authority.
 
-Shared names such as **Balloon** and **Brake** are documented as optional mnemonics in
-[`docs/foundation/foundation-pattern-language.md`](./docs/foundation/foundation-pattern-language.md).
-The names are never findings by themselves.
+## 3. Install in 30 seconds
 
-## Pinned Matt companion
-
-The plugin includes 21 workflow skills selected from the pinned upstream manifest for
-[`mattpocock/skills`](https://github.com/mattpocock/skills). The upstream setup skill
-is intentionally omitted because this distribution already includes its issue,
-domain, and triage configuration. Useful mechanisms from the user-supplied temporary
-skills were researched and merged into the existing Matt owners instead of adding
-duplicate phases: archetype fit in `codebase-design`, fake-pass and review-artifact
-checks in `code-review`, proof-surface selection in `tdd`, and the compact goal
-contract in `to-spec`.
-
-Provenance, license, upstream hashes, local patch ledger, and the update contract live
-under [`third_party/mattpocock-skills/`](./third_party/mattpocock-skills/). The three
-Foundation Integrity skills and coworker protocol remain usable if the companion is
-removed.
-
-## Install
-
-Choose one installation surface. Plugin installation gives you a managed, namespaced
-bundle. Standalone installation puts unnamespaced skills directly in a project.
-
-### One-command project adoption
-
-For a personal repository that should own the skills and selected project assets
-directly, run the bootstrap from the target repository. Existing `AGENTS.md` and
-`CLAUDE.md` remain untouched:
+Run the bootstrap from the target repository. Choose exactly one runtime:
 
 ```bash
-# Codex full-opt
+# Codex
 curl -fsSL "https://raw.githubusercontent.com/long7400/foundation-integrity/main/scripts/install.sh?$(date +%s)" \
   | bash -s -- --codex
 
-# Claude full-opt
-curl -fsSL "https://raw.githubusercontent.com/long7400/foundation-integrity/main/scripts/install.sh?$(date +%s)" \
-  | bash -s -- --claude --full-opt
-
-# Both runtimes: preview the complete inert payload
-curl -fsSL "https://raw.githubusercontent.com/long7400/foundation-integrity/main/scripts/install.sh?$(date +%s)" \
-  | bash -s -- --both --full-opt --dry-run
-```
-
-Full-opt is the only supported project payload; the bootstrap requires exactly one
-of `--codex`, `--claude`, or `--both`. `--full-opt` is accepted for clarity but is
-already the default. It always installs fitness guidance, active project hooks, and
-inert orchestration policy for the selected runtime.
-Blocking pre-push remains a separate `--with-pre-push` choice. Use `--directory <repo>` outside the target directory and
-`--ref <tag-or-commit>` to select the payload revision.
-
-The bootstrap resolves the requested ref to one commit, downloads that immutable
-archive, prints the repository/ref/commit, and calls the project-local adopter. It
-does not modify global runtime configuration, install profiles, open panes, or
-activate orchestration. As with any `curl | bash` flow, inspect `scripts/install.sh`
-or run `--dry-run` first when the source is not already trusted.
-
-### Claude Code plugin
-
-```
-/plugin marketplace add long7400/foundation-integrity
-/plugin install foundation-integrity@foundation-integrity
-```
-
-Claude loads the plugin's canonical `skills/` payload. Invoke a first-party skill with
-the plugin namespace, for example:
-
-```text
-/foundation-integrity:foundation-audit Audit the foundation for FEATURE A before design.
-```
-
-### Codex plugin
-
-```bash
-codex plugin marketplace add long7400/foundation-integrity
-codex plugin add foundation-integrity@foundation-integrity
-```
-
-Codex loads the recursive `skills/` root declared by `.codex-plugin/plugin.json`.
-The three Foundation Integrity skills are explicit-only in Codex, so name them:
-
-```text
-Use $foundation-audit to audit the foundation for FEATURE A before design.
-```
-
-### Manual standalone project skills
-
-The bootstrap above removes the need for manual copying. From an existing checkout,
-you can still copy only the runtime projection:
-
-```bash
 # Claude Code
-mkdir -p <repo>/.claude/skills
-cp -R .claude/skills/. <repo>/.claude/skills/
+curl -fsSL "https://raw.githubusercontent.com/long7400/foundation-integrity/main/scripts/install.sh?$(date +%s)" \
+  | bash -s -- --claude
 
-# Codex
-mkdir -p <repo>/.agents/skills
-cp -R .agents/skills/. <repo>/.agents/skills/
+# Both runtimes, preview only
+curl -fsSL "https://raw.githubusercontent.com/long7400/foundation-integrity/main/scripts/install.sh?$(date +%s)" \
+  | bash -s -- --both --dry-run
 ```
 
-Claude then invokes `/foundation-audit`; Codex still invokes
-`$foundation-audit`. Do not copy the Codex projection into Claude or the Claude
-projection into Codex: only Codex carries `agents/openai.yaml` metadata.
+`full-opt` is the only supported payload and is already selected. The explicit
+`--full-opt` flag remains accepted for clarity. Useful options:
 
-Detailed installation boundaries are in
-[`docs/install/claude.md`](./docs/install/claude.md) and
-[`docs/install/codex.md`](./docs/install/codex.md).
+| Option | Effect |
+| --- | --- |
+| `--directory <repo>` | Adopt into a repository other than the current directory. |
+| `--ref <commit-or-tag>` | Resolve and install one immutable source revision. |
+| `--dry-run` | Print the complete effects ledger without mutating the target. |
+| `--with-pre-push` | Add the explicit blocking pre-push tier. |
+| `--no-pre-commit` | Do not newly wire the warn-only pre-commit hook. |
 
-## First use
+The bootstrap resolves the requested revision, downloads one archive, prints its
+identity, and invokes the project adopter. If you already have a checkout:
 
-Run the gate before a solution, schema, interface, or migration is frozen. A useful
-first prompt is:
+```bash
+sh templates/setup/full-opt.sh --runtime codex --dry-run /path/to/project
+sh templates/setup/full-opt.sh --runtime codex /path/to/project
+```
+
+The direct adopter expects the source checkout to have an `origin` remote. For an
+intentional source copy without Git metadata, set `FI_SOURCE_REPOSITORY` explicitly;
+missing source provenance fails closed. The remote bootstrap always supplies it.
+
+Read the script or use `--dry-run` before any remote shell execution you do not
+already trust.
+
+## 4. The complete workflow
+
+```mermaid
+flowchart TD
+    A[Non-trivial change] --> B[Foundation audit]
+    B --> C{Outcome}
+    C -->|RESEARCH_ONLY| D[Gather primary evidence]
+    D --> B
+    C -->|NO_GO| E[Stop or contain active harm]
+    C -->|PROCEED| F{Route}
+    F -->|Foundation-first| G[Repair the owner or primitive]
+    F -->|Bounded compatibility| H[Build one owned translation seam]
+    F -->|Feature-first| I[Implement against the surviving foundation]
+    G --> J[Exercise the architectural proof surface]
+    H --> J
+    I --> J
+    J --> K{Foundation surface or mismatch changed?}
+    K -->|Yes| L[Fresh adversarial review]
+    K -->|No| M[Review against spec and standards]
+    L --> M
+    M --> N[Accept, revise, or reject]
+```
+
+### Step 1 — Audit before design freezes
+
+Use the gate before a non-trivial feature, module, migration, refactor, schema,
+security boundary, reliability mechanism, or performance architecture:
 
 ```text
-Audit the foundation that FEATURE A will load-bear on. Identify the owner, source of
-truth, lifecycle and trust boundaries, intended versus observed behavior, mismatch
-signals, proof surfaces, and the cheapest fake pass. Return one classification, one
-outcome, and exactly one implementation route before proposing implementation.
+Use foundation-audit. Audit the foundation this change will load-bear on. Identify
+the owner, source of truth, lifecycle, trust boundaries, dependency direction,
+intended versus observed behavior, mismatch signals, proof surface, and cheapest
+fake pass. Return exactly one classification, one outcome, and one route before
+proposing implementation.
 ```
 
-The audit must return:
+The receipt must contain:
 
-- `FOUNDATION_OK`, `FOUNDATION_SUSPECT`, or `FOUNDATION_BLOCKED`;
-- `PROCEED`, `RESEARCH_ONLY`, or `NO_GO`; and
+- one classification: `FOUNDATION_OK`, `FOUNDATION_SUSPECT`, or
+  `FOUNDATION_BLOCKED`;
+- one outcome: `PROCEED`, `RESEARCH_ONLY`, or `NO_GO`; and
 - one route: Foundation-first, Bounded compatibility, or Feature-first.
 
-Only `PROCEED` unlocks dependent implementation. Unknown load-bearing facts are
-research blockers, not assumptions to hide under wrappers.
+Only `PROCEED` unlocks dependent implementation. Unknown load-bearing facts remain
+research blockers.
 
-## Normal workflow
+### Step 2 — Implement the chosen route
 
-1. Run `foundation-audit` before `to-spec`, design, `tdd`, `implement`, or
-   `prototype`.
-2. If the route is Foundation-first, repair or introduce the missing primitive before
-   the feature. If it is Bounded compatibility, record the boundary, owner, proof,
-   lifecycle, migration/removal condition, and accepted cost.
-3. When a foundation surface changed, a mismatch signal appeared, or a fitness check
-   regressed, run `adversarial-foundation-review` in a separate top-level session.
-   Give it an open falsification question, not a proposed answer to approve.
-4. Implement in vertical slices with the proof surface chosen by the claim. Use
-   `tdd` when a test is the strongest proof; use a validator, benchmark, runtime
-   observation, contract evidence, or visual check when it is stronger.
-5. Run `code-review` against both the governing spec and repository standards. For a
-   foundation surface, require the fake-pass/architecture axis as well as green
-   feature tests.
-6. Run `foundation-health` every few execution waves or when recurring seams, churn,
-   open compatibility layers, or repeated exceptions begin to accumulate.
+- **Foundation-first:** repair or introduce the missing owner/primitive before the
+  dependent feature.
+- **Bounded compatibility:** centralize translation behind one owner, contract,
+  observability surface, lifecycle, and removal condition.
+- **Feature-first:** proceed only because the relevant foundation claims survived
+  the available probes.
 
-The 21 pinned companion skills provide specification, design, implementation, TDD,
-review, research, and productivity workflows. They compose after or around the gate;
-they do not replace it.
+Apply the smallest containment first if active harm exists. Do not create a second
+authority, bypass a trust boundary, or freeze a known mismatch into durable data.
 
-## What installation does—and does not—activate
+### Step 3 — Prove the claim, not the implementation shape
 
-Plugin installation makes the 24 skills discoverable but does not mutate the
-repository. The one-command project adopter is different: full-opt installs the
-selected skill projection, four `docs/agents/` conventions, compact foundation docs,
-fitness guidance, runtime hooks, inert orchestration policy, the local ADR template,
-and the marked ignore block.
+Choose the strongest available proof: a test, contract run, dependency check,
+benchmark, runtime observation, migration rehearsal, or visual inspection. Prefer a
+proof that catches the cheapest fake pass and survives harmless internal refactors.
 
-Codex still requires the project and exact hook definitions to be reviewed/trusted
-through `/hooks`. Orchestration remains inert: installation copies policy/profile
-files but does not open panes, install global profiles, or create live state.
+### Step 4 — Challenge durable work independently
 
-## Full-opt local adopter
+After a foundation surface changes, a mismatch signal appears, or a fitness check
+regresses, run `adversarial-foundation-review` in a fresh top-level session. Give the
+reviewer an open falsification question and exact evidence—not the answer you want
+approved. The implementer cannot approve its own durable change.
 
-The remote bootstrap calls `templates/setup/full-opt.sh`. There is one payload:
-full-opt. Runtime selection is the only payload dimension:
+### Step 5 — Review and monitor cumulative health
+
+Run normal code/spec review after the foundation proof. Every few execution waves,
+or when repeated seams and exceptions accumulate, use `foundation-health` to rank
+structural repair work that a single feature receipt cannot see.
+
+## 5. What installation changes
+
+| Installed surface | Ownership and behavior |
+| --- | --- |
+| `.agents/skills/` and/or `.claude/skills/` | The selected checked 24-skill projection. Unrelated consumer skills are preserved. |
+| `AGENTS.md` | Created only when absent. Existing `AGENTS.md` and `CLAUDE.md` remain byte-for-byte untouched. |
+| `docs/agents/` and `docs/foundation/` | Project conventions, compact rationale, and proof-selection guidance. |
+| `.codex/hooks/` and/or `.claude/hooks/` | Project-scoped hook scripts and runtime wiring for the selected runtime. |
+| `.orchestration/foundation/` | Static optional coworker policy, selected runtime profiles, and transparent root lifecycle primitives; never activated automatically. |
+| `.gitignore` | A marked block for runtime/process state, projections, local research/receipts, temporary files, and local ADR history. Existing unmanaged lines are preserved. |
+| `.foundation-integrity/adoption.tsv` | Source version/ref/revision, payload digests, file hashes, modes, selected runtime, and managed ownership. |
+
+The adopter does **not** change global runtime configuration, copy API keys, install
+user profiles, open sessions, enable a coworker backend, publish research notes, or
+overwrite differing project-owned files. A preflight conflict stops before managed
+writes.
+
+The installer is conflict-aware and idempotent, not a transactional package manager.
+Its target lock serializes cooperating installer runs; arbitrary concurrent editors
+can still race a shell copy. Postconditions detect surviving incomplete or changed
+managed state, after which the safe response is to inspect the ledger and rerun.
+
+## 6. Optional coworker flow
+
+The coworker material is an experiment, not the default way to use the pack. Load it
+only when independent external sessions are explicitly requested.
+
+Its invariant is small:
+
+- one root owns task state, validation leases, acceptance, release, and teardown;
+- peers are read-only; implementers receive explicit non-overlapping write scopes;
+- native subagents are not mixed with external coworker sessions;
+- session status is an attention signal, never task authority or acceptance proof;
+- workers cannot approve their own durable work.
+
+The five primary Codex profiles remain unchanged:
+
+| Profile | Work class | Model | Access |
+| --- | --- | --- | --- |
+| `fi-root-lead` | control | `gpt-5.6-sol` | workspace write, final authority |
+| `fi-peer-scout` | scout | `gpt-5.6-luna` | read-only observations |
+| `fi-peer-challenge` | challenge | `gpt-5.6-sol` | read-only counterevidence |
+| `fi-implementer-mechanical` | mechanical | `gpt-5.6-luna` | bounded workspace write |
+| `fi-implementer-ambiguous` | ambiguous | `gpt-5.6-sol` | bounded workspace write |
+
+Install and attest those five primary envelopes with the reviewed profile manager:
 
 ```bash
-sh templates/setup/full-opt.sh --runtime codex --full-opt --dry-run <repo>
-sh templates/setup/full-opt.sh --runtime codex --full-opt <repo>
-sh templates/setup/full-opt.sh --runtime both --full-opt <repo>
+sh .orchestration/foundation/scripts/manage-codex-profiles.sh status
+sh .orchestration/foundation/scripts/manage-codex-profiles.sh install
 ```
 
-Use `--runtime claude` for Claude only or `--runtime both` for both checked runtime
-projections. Each selected projection contains the same 24 skills.
+From a Herdr root pane, launch the receipt-bound root and coworkers only through the
+transparent primitives. They bind exact profile bytes, the install manifest,
+effective CLI overrides, process identity, cwd, and root-owned validation authority:
 
-Full-opt always installs the selected skills and marked ignore block, exactly four
-`docs/agents/` files, compact foundation docs, fitness guidance, active hooks, inert
-orchestration, and `docs/adr/0000-template.md`. The installer is transparent and
-idempotent. It:
+```bash
+exec sh .orchestration/foundation/scripts/launch-codex-root.sh \
+  "${TMPDIR:-/tmp}/fi-root.launch.json" "$PWD"
 
-- installs all 24 managed pack skills for each selected runtime while preserving
-  unrelated consumer-owned skills outside those managed directories;
-- creates a short consumer-neutral `AGENTS.md` only when the target has no
-  `AGENTS.md`, while leaving existing `AGENTS.md` and `CLAUDE.md` byte-for-byte
-  untouched;
-- merges ignore rules for `.foundation/`, `.orchestration/`, `.codex/`, `.agents/`,
-  `docs/research/`, `tmp/`, and personal
-  numbered ADR history while preserving `docs/adr/0000-template.md`;
-- copies the four `docs/agents/` conventions and customizes the GitHub tracker from
-  `origin` when possible;
-- never creates a downstream `templates/` directory;
-- on a v2 upgrade, retires owned legacy template files but preserves empty legacy
-  parent directories because the v2 ledger has file ownership only; an ambiguous
-  pre-existing identical v3 path is a conflict, never silently claimed;
-- on a v2 upgrade, preserves `AGENTS.md` and `CLAUDE.md` byte-for-byte and records a
-  digest-bound pending journal; the still-authoritative v2 adoption lock records the
-  exact operation plan and binds that exact journal before mutation, so an unbound or
-  planted journal cannot claim an identical project file during recovery;
-- places fitness guidance in `docs/foundation/fitness/`;
-- places executable hooks under the selected runtime's `hooks/scripts/` directory,
-  installs
-  `.codex/hooks.json` and/or `.claude/settings.json` for selected runtimes, and refuses
-  to black-box merge an existing differing config;
-- places static coworker policy and transparent root primitives in
-  `.orchestration/foundation/`, copying only the selected runtime profile subtree and
-  creating no live orchestration state;
-- writes `.foundation-integrity/adoption.tsv` with the distribution version, source
-  ref/revision, payload digest, selected components, and content plus POSIX mode for
-  every managed file/hook;
-- installs the warn-only pre-commit hook when the target has a normal `.git/hooks`
-  directory and no existing hook conflict; and
-- installs the blocking pre-push hook only with `--with-pre-push`.
+sh .orchestration/foundation/scripts/start-codex-coworker.sh \
+  claim-falsifier fi-peer-challenge >"${TMPDIR:-/tmp}/claim-falsifier.launch.json"
+```
 
-`--no-pre-commit` suppresses new pre-commit wiring. On a later adoption run it keeps
-an unchanged pre-commit hook already owned by the adoption lock; it does not silently
-uninstall that hook. Removal stays ledger-driven as described below.
+Transport status and pane telemetry remain attention/continuity signals, never task
+authority or acceptance evidence. A release claiming this Codex envelope must also
+run the binary-bound runtime tier with a trusted absolute Codex path and an expected
+SHA-256 from an independent authenticated record:
 
-It does **not** copy research working notes, duplicate the merged gitignore source,
-install user-global profiles, enable a session-backend integration, open panes, or
-activate orchestration.
-Existing differing project files are reported and left untouched; the main setup
-aborts before installer-managed writes when preflight detects a conflict. A
-target-local `.foundation-integrity-install.lock` serializes applying runs and is
-removed only when its ownership token still matches the process that acquired it.
-Before each managed update/removal and each shared-file write, the installer
-revalidates the state observed during preflight. A custom pre-commit hook is preserved
-for manual composition.
+```bash
+export FI_CODEX_BIN=/absolute/path/to/codex
+export FI_CODEX_SHA256=<independently-recorded-sha256>
+sh tests/codex-orchestration-acceptance.sh
+```
 
-The shell installer is not a transactional package manager. The target lock
-serializes cooperating installer runs, not arbitrary editors or processes, and no
-portable shell check can eliminate the final compare-to-write race against a
-non-cooperating mutation. An I/O failure or such a race can leave partial state. Final
-postconditions detect incomplete, mode-changed, or otherwise changed managed surfaces
-when the changed state survives; they cannot prove that no concurrent edit was briefly
-overwritten. Inspect the effects ledger and rerun after resolving the cause.
+### Optional GLM-5.2 auxiliary profiles
 
-On a later distribution snapshot, a managed file is updated or removed only when its
-current hash still matches the previous adoption lock. A consumer edit becomes a
-conflict instead of being overwritten. Unrelated skills remain outside the managed
-set; stale files or wrong-runtime metadata inside one of the 24 managed skill
-directories are rejected.
+Exactly two lower-cost envelopes are active through a local, loopback-only
+compatibility gateway. The five primary Codex profiles and their provider are not
+changed:
 
-A pre-existing non-skill file or git hook that is already byte-and-mode identical is
-reported as external-identical and is not claimed for future update or removal.
-Selected runtime skill directories are the exception: choosing that runtime explicitly
-adopts its exact 24-skill projection.
+| Profile | Intended use after compatibility exists | Current status |
+| --- | --- | --- |
+| `fi-glm-peer-scout` | Read-only inventory, evidence collection, reproduction setup | Active through CLIProxyAPI on `127.0.0.1` |
+| `fi-glm-implementer-mechanical` | Well-specified mechanical edits in an explicit write scope | Active through CLIProxyAPI on `127.0.0.1` |
 
-Instruction ownership is outside the installer. Existing rules, imports, and any
-transport-neutral coworker boundary remain exactly as the project currently defines
-them. The full orchestration manuals and profiles remain inert until explicitly read
-and activated.
+They are not approved for root, challenge, or ambiguous implementation. Both use
+`glm-5.2`, `model_reasoning_effort = "max"`, and an explicit
+`model_context_window = 272000` rather than the model's larger default context.
 
-After setup, customize the selected runtime's `hooks/scripts/foundation-surface.txt` and
-adapt the matching rule under `docs/foundation/fitness/adapters/`. Hook configuration is already project-scoped;
-existing differing runtime config is a preflight conflict, never a silent merge.
+The placement is intentionally conservative:
 
-Removal is deliberately ledger-driven rather than a destructive uninstall command:
-verify managed paths and hook hashes from `.foundation-integrity/adoption.tsv`, remove
-only unchanged recorded files/hooks, remove the marked block from `.gitignore`, then
-delete the lock. A newly-created generic `AGENTS.md` may appear in the first adoption
-receipt, but a later run preserves it and transfers further edits to the project.
-Modified managed files require an explicit human decision.
+| Evidence class | Public result | Interpretation |
+| --- | --- | --- |
+| [Vendor model card](https://huggingface.co/zai-org/GLM-5.2) | Terminal-Bench 2.1: 81.0; SWE-bench Pro: 62.1 | Strong coding signal, but vendor-reported. |
+| [Artificial Analysis](https://artificialanalysis.ai/models/glm-5-2) | Coding Index about 68.76; Agentic Index about 43.06 | Supports bounded coding work more than high-impact coordination. |
+| [Terminal-Bench 2.1](https://artificialanalysis.ai/evaluations/terminalbench-v2-1) and [Hard](https://artificialanalysis.ai/evaluations/terminalbench-hard) | About 77.90% and 50.76% | Independent terminal evidence is strong but not equivalent to architectural judgment. |
+| [Small KernelBench comparison](https://github.com/Infatoshi/kernelbench.com/blob/4756f161c809b62e2533e57be3bd46a377412651/media/make_glm52_4way.py) | Four clean results and two timeouts across six tasks | Useful practical counterevidence; far too small for a general ranking. |
 
-Companion tracker skills expect project-specific `docs/agents/` configuration. If it
-is absent, they report the gap instead of invoking a hidden setup workflow.
+These numbers justify bounded roles only; they do not promote GLM to root,
+challenge, or ambiguous implementation work. The gateway owns the only protocol
+translation seam: Codex speaks Responses to `127.0.0.1`, and the gateway speaks
+Chat Completions to Z.AI. Local end-to-end probes covered text, function calls,
+tool-result continuation, SSE streaming, loopback binding, and teardown.
 
-## Local and canonical state
+Set up and run it explicitly:
 
-The distribution includes a root `.gitignore` and a reusable marked block that keeps
-consumer-local `.foundation/`, `.orchestration/`, `.codex/`, `.agents/`, per-project
-`docs/research/`, `tmp/`, and numbered personal ADR history out of commits.
-`docs/adr/0000-template.md` remains trackable.
-For full-opt consumers this is deliberate: runtime projections, hook policy, and
-inert orchestration stay local, while the non-ignored
-`.foundation-integrity/adoption.tsv` binds their source revision, hashes, and modes
-for conflict-safe upgrades. Review the pinned source/effects ledger before adoption;
-do not mistake ignored payload for repository-reviewed configuration.
-Plugin managers install
-into their own caches and do not create `docs/research/` or mutate a consumer
-repository's `.gitignore`; standalone skill installs copy only their runtime skill
-projection. Direct repo installs must merge the supplied ignore block explicitly
-rather than relying on hidden setup.
+```bash
+sh .orchestration/foundation/scripts/cliproxy-glm.sh setup
+sh .orchestration/foundation/scripts/cliproxy-glm.sh start
+eval "$(sh .orchestration/foundation/scripts/cliproxy-glm.sh print-env)"
+codex --profile fi-glm-peer-scout
+# or: codex --profile fi-glm-implementer-mechanical
 
-Do not publish working research merely because it exists. Promote only the accepted,
-decision-lossless conclusion into its canonical owner; keep the exploratory note
-ignored.
+sh .orchestration/foundation/scripts/cliproxy-glm.sh doctor
+sh .orchestration/foundation/scripts/cliproxy-glm.sh stop
+sh .orchestration/foundation/scripts/cliproxy-glm.sh remove
+```
 
-## Maintainers: why all three skill trees exist
+`setup` asks for the Z.AI key without echoing it, verifies the pinned v7.2.80
+macOS/Linux binary checksum, installs only the two GLM profiles into `$CODEX_HOME`,
+stores gateway state under user config/state/data directories with owner-only
+permissions, and generates a separate local client key. It refuses to overwrite a
+differing profile. The upstream key is never written to a profile or repository.
+`remove` stops the process, removes unchanged GLM profile copies, and deletes only
+this gateway state; it does not touch the default Codex provider or five primary
+profiles.
 
-`skills/` is not redundant. It is the sole authoring source and the payload consumed
-by both plugin manifests. `.claude/skills/` and `.agents/skills/` are generated
-standalone project projections.
+If an earlier direct-integration test left a differing
+`$CODEX_HOME/fi-glm-*.config.toml`, stop any dependent session and remove that old
+test copy first; setup deliberately refuses to overwrite it.
 
-Never edit a projection directly. After changing a canonical skill, run:
+This is a workflow boundary, not an operating-system security boundary. Deliberate
+out-of-band bypasses remain the user's responsibility.
+
+Primary endpoint references: [Z.AI tool integration](https://docs.z.ai/devpack/tool/others)
+and [Coding Plan model selection](https://docs.z.ai/devpack/latest-model).
+
+See [`templates/orchestration/runtime/codex.md`](./templates/orchestration/runtime/codex.md)
+for the Herdr launch contract, gateway lifecycle, and removal flow.
+
+## 7. Update and removal
+
+Re-run the shell bootstrap with a new immutable `--ref`. A managed file is updated or
+removed only when its current hash still matches the previous adoption ledger. A
+consumer edit becomes a conflict instead of being overwritten.
+
+Removal is deliberately ledger-driven rather than destructive:
+
+1. inspect `.foundation-integrity/adoption.tsv`;
+2. verify current hashes and modes;
+3. remove only unchanged recorded files and hooks;
+4. remove the marked Foundation Integrity block from `.gitignore`;
+5. remove the adoption ledger after reconciliation.
+
+Deleting repository templates does not remove user-level profiles already copied to
+`$HOME/.codex/`. Remove those only after no active session depends on them.
+
+## 8. Source-of-truth rules for maintainers
+
+- `skills/` is the only skill authoring source.
+- `.claude/skills/` and `.agents/skills/` are generated runtime projections; never
+  edit them directly.
+- `VERSION` owns the distribution version.
+- `templates/` is authoring input, not a downstream directory layout.
+- `.foundation/` and `tmp/` contain runtime/process state and are never canonical.
+- Research notes and `docs/foundation/receipts/*.md` remain local working evidence.
+  Only `.gitkeep` is tracked for the receipt directory; promote a decision-lossless
+  conclusion to an explicit tracked owner when it truly needs to be shared.
+
+After changing a canonical skill:
 
 ```bash
 sh scripts/sync-runtime-skills.sh
 sh tests/repo-contracts.sh
 ```
 
-The sync builds both projections before replacing either one and removes Codex-only
-metadata from Claude. Deleting `skills/` would break both plugin manifests, the
-provenance hash paths, and the one-way source-of-truth contract.
+## 9. Who this is for
 
-## Advanced: optional coworker pilot
+Use Foundation Integrity when a codebase has long-lived ownership, data, APIs,
+security boundaries, migrations, or architectural seams—and when “tests are green”
+is not enough evidence that the system became healthier.
 
-The project-owned material under `.orchestration/foundation/` is a measured
-experiment, not an installed skill or default workflow. It requires one root controller, fresh
-top-level sessions, explicit role/model envelopes, non-overlapping write scopes,
-root-owned validation locks, and digest-bound evidence. Workers receive the task
-contract, not transport topology. Runtime status is never acceptance evidence.
-The executable receipt-bound Herdr lifecycle and real smoke are presently the Codex
-pilot; the Claude material is an explicitly narrower static launch envelope.
+It is probably unnecessary for a throwaway script, a clearly local mechanical edit,
+or a prototype whose deletion boundary is explicit. The gate should be proportional;
+it should not turn trivial work into ceremony.
 
-A release that claims the Codex envelope must run the binary-bound runtime tier; the
-portable repository contracts alone do not make that claim:
+Detailed runtime installation boundaries:
 
-```bash
-export FI_CODEX_BIN=/absolute/path/from-audited-install-record/codex
-export FI_CODEX_SHA256=<sha256-from-that-independent-record>
-sh tests/codex-orchestration-acceptance.sh
-```
-
-The tier fails closed on a missing or mismatched declared identity. It proves that the
-observed file bytes match the supplied digest; it does not authenticate that digest
-or a hostile local verifier toolchain. Use a trusted shell/Python/hash environment
-and an authenticated independent installation or release record, not a digest
-resolved from the current `PATH` inside the same acceptance command.
-
-Start with a bounded comparison against a single-agent baseline and keep the pilot
-only if it finds material counterevidence worth its coordination cost.
-
-References: [Claude project skills](https://code.claude.com/docs/en/skills),
-[Claude plugins](https://code.claude.com/docs/en/plugins),
-[Codex customization](https://learn.chatgpt.com/docs/customization/overview#skills),
-and [Codex plugin structure](https://developers.openai.com/codex/plugins/build).
+- [Codex installation](./docs/install/codex.md)
+- [Claude Code installation](./docs/install/claude.md)
 
 ## License
 
-MIT.
+MIT. See [`LICENSE`](./LICENSE).

@@ -23,9 +23,10 @@ expected = {
     "fi-peer-challenge.config.toml", "fi-implementer-mechanical.config.toml",
     "fi-implementer-ambiguous.config.toml",
 }
-sources = {path.name: path for path in source.glob("fi-*.config.toml")}
-if set(sources) != expected:
-    raise SystemExit("profile install: source profile set is incomplete")
+sources = {name: source / name for name in expected}
+missing = sorted(name for name, path in sources.items() if not path.is_file())
+if missing:
+    raise SystemExit(f"profile install: primary source profile set is incomplete: {missing}")
 created: list[tuple[pathlib.Path, int, int]] = []
 
 def exclusive_write(path: pathlib.Path, content: bytes) -> os.stat_result:

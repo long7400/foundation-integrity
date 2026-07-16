@@ -11,10 +11,13 @@ node_modules/
 # session-local and must never be pushed from a consumer repo.
 .foundation/
 
-# Per-project research notes are local working material. Promote accepted decisions
-# to docs/adr/ or docs/foundation/receipts/ before sharing them.
+# Per-project research notes and foundation receipts are local working material.
+# Promote only decision-lossless conclusions into an explicitly tracked project
+# document when they truly need to be shared.
 docs/research/*
 !docs/research/.gitkeep
+docs/foundation/receipts/*
+!docs/foundation/receipts/.gitkeep
 
 # Personal ADR working history. Keep only the reusable template in the pack.
 docs/adr/*.md

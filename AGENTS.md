@@ -43,7 +43,7 @@ instructions.
 
 ## Repository invariants
 
-- `skills/` is the canonical authoring and plugin source. `.claude/skills/` and
+- `skills/` is the canonical authoring and distribution source. `.claude/skills/` and
   `.agents/skills/` are generated standalone projections. Regenerate both with
   `sh scripts/sync-runtime-skills.sh` after any canonical skill change.
 - The default distribution contains exactly 24 skills: three standalone first-party
@@ -68,8 +68,13 @@ instructions.
 - Runtime/process state under `.foundation/` and `tmp/` is never canonical. Local ADR
   history is ignored by default; promote only accepted decision-lossless evidence to
   an explicitly tracked owner when the project needs one.
-- `.claude-plugin/plugin.json`, `.codex-plugin/plugin.json`, the marketplace,
-  canonical skills, and both projections must stay in sync.
+- Shell adoption is the only distribution lifecycle. `VERSION` owns the release
+  version; `scripts/install.sh` resolves a source snapshot and
+  `templates/setup/full-opt.sh` performs transparent project adoption. Retired
+  `.claude-plugin/` and `.codex-plugin/` packaging must not return accidentally.
+- The five primary Codex role envelopes remain unchanged. Two optional GLM-5.2
+  alternatives may cover only scout and bounded mechanical work; they stay explicit,
+  environment-credentialed profile overlays and never replace the default provider.
 - The pack obeys its own doctrine: one source of truth, explicit lifecycle, no
   unverified claim shipped as fact.
 
@@ -80,10 +85,21 @@ instructions.
 ## External coworker mode — load only when requested
 
 Do not load or apply the orchestration material for an ordinary single-session task.
-When the user explicitly requests independent external coworkers and `HERDR_ENV=1`,
-read `templates/orchestration/model-role-policy.md`,
-`templates/orchestration/coworker-protocol.md`, and only the adapter for the active
-runtime.
+When the user requests external coworkers, parallel agents, or says “spawn agent”,
+require `HERDR_ENV=1`; if absent, report that exact blocker and do not substitute a
+native or terminal mechanism. Then read `templates/orchestration/model-role-policy.md`,
+`templates/orchestration/coworker-protocol.md`, and only the active runtime adapter.
+
+### Herdr-only coworker spawning
+
+- “Spawn agent” means create the external coworker through Herdr; it
+  never means running a terminal command manually, calling a native subagent, or
+  starting a background agent outside Herdr.
+- Use Herdr for the complete coworker lifecycle: create, send the open task packet,
+  wait, inspect/read output, and teardown. Do not mix Herdr coworkers with native
+  subagents or background agents.
+- If Herdr is unavailable, report the exact blocker and stop the requested coworker
+  workflow rather than silently substituting a terminal or native-agent mechanism.
 
 The always-valid boundary is small:
 

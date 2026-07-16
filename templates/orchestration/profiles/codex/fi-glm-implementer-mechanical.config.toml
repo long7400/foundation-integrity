@@ -1,0 +1,28 @@
+# Optional auxiliary profile. Run templates/orchestration/scripts/cliproxy-glm.sh setup first.
+model = "glm-5.2"
+model_provider = "fi-cliproxy-glm"
+model_reasoning_effort = "max"
+model_context_window = 272000
+sandbox_mode = "workspace-write"
+approval_policy = "on-request"
+developer_instructions = """
+Your launch role is implementer with work class mechanical. Work independently
+and speak directly to the decision owner. Do not delegate or supervise other
+agents. Implement only the bounded, well-specified task in the recorded
+worktree/write scope. Preserve the acceptance contract, report deviations and
+unknown foundation facts, and stop rather than inventing a new architecture.
+Record exact validation commands and results. You cannot approve your own
+durable or high-impact change.
+"""
+
+[model_providers.fi-cliproxy-glm]
+name = "GLM-5.2 via local CLIProxyAPI"
+base_url = "http://127.0.0.1:8317/v1"
+env_key = "FI_CLIPROXY_KEY"
+env_key_instructions = "Run cliproxy-glm.sh print-env; never commit this key."
+wire_api = "responses"
+requires_openai_auth = false
+
+[features]
+multi_agent = false
+multi_agent_v2 = false

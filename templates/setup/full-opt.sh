@@ -1197,12 +1197,22 @@ case "$pre_push_action" in
 esac
 content_sha256=$(LC_ALL=C sort "$payload_records" | sha256_stream)
 source_revision=${FI_SOURCE_REVISION:-$(git -C "$source_root" rev-parse HEAD 2>/dev/null || printf '%s' unversioned)}
-distribution_version=$(sed -n 's/^[[:space:]]*"version":[[:space:]]*"\([^"]*\)".*/\1/p' \
-  "$source_root/.codex-plugin/plugin.json" | head -n1)
-[ -n "$distribution_version" ] || distribution_version=unknown
-source_repository=${FI_SOURCE_REPOSITORY:-$(sed -n 's/^[[:space:]]*"repository":[[:space:]]*"\([^"]*\)".*/\1/p' \
-  "$source_root/.codex-plugin/plugin.json" | head -n1)}
-[ -n "$source_repository" ] || source_repository=unknown
+version_file=$source_root/VERSION
+[ -f "$version_file" ] && [ ! -L "$version_file" ] \
+  || die "source tree is missing the regular VERSION file"
+distribution_version=$(tr -d '\r\n' < "$version_file")
+[ -n "$distribution_version" ] \
+  || die "source VERSION is empty"
+printf '%s\n' "$distribution_version" | awk -F '.' '
+  NF == 3 && $1 ~ /^[0-9]+$/ && $2 ~ /^[0-9]+$/ && $3 ~ /^[0-9]+$/ { valid = 1 }
+  END { exit !valid }
+' || die "source VERSION must contain one semantic version"
+source_repository=${FI_SOURCE_REPOSITORY:-}
+if [ -z "$source_repository" ]; then
+  source_repository=$(git -C "$source_root" remote get-url origin 2>/dev/null || printf '')
+fi
+[ -n "$source_repository" ] \
+  || die "source repository is unknown; set FI_SOURCE_REPOSITORY or configure origin"
 source_ref=${FI_SOURCE_REF:-local}
 if [ -n "${FI_SOURCE_TREE_STATE:-}" ]; then
   source_tree_state=$FI_SOURCE_TREE_STATE

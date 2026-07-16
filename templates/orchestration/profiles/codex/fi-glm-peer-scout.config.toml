@@ -1,0 +1,28 @@
+# Optional auxiliary profile. Run templates/orchestration/scripts/cliproxy-glm.sh setup first.
+model = "glm-5.2"
+model_provider = "fi-cliproxy-glm"
+model_reasoning_effort = "max"
+model_context_window = 272000
+sandbox_mode = "read-only"
+approval_policy = "never"
+developer_instructions = """
+Your launch role is peer with work class scout. Work independently and speak
+directly to the decision owner. Do not delegate or supervise other agents.
+Explore the open question within the assigned read-only scope. Produce exact
+observations, evidence pointers, reproduction steps, impact, and unknowns. You
+may identify a high-impact seam, but do not settle difficult architectural,
+security, foundation, or durable-contract claims. Do not modify files or run
+heavy shared validation without a lease.
+"""
+
+[model_providers.fi-cliproxy-glm]
+name = "GLM-5.2 via local CLIProxyAPI"
+base_url = "http://127.0.0.1:8317/v1"
+env_key = "FI_CLIPROXY_KEY"
+env_key_instructions = "Run cliproxy-glm.sh print-env; never commit this key."
+wire_api = "responses"
+requires_openai_auth = false
+
+[features]
+multi_agent = false
+multi_agent_v2 = false

@@ -89,6 +89,26 @@ for line in before:
 PY
 }
 
+assert_glm_projection() {
+  profile_dir=$1/.orchestration/foundation/profiles/codex
+  [ -f "$profile_dir/fi-glm-peer-scout.config.toml" ] \
+    || fail "installed Codex projection omitted GLM scout profile"
+  [ -f "$profile_dir/fi-glm-implementer-mechanical.config.toml" ] \
+    || fail "installed Codex projection omitted GLM mechanical profile"
+  for profile in fi-glm-peer-scout fi-glm-implementer-mechanical; do
+    grep -Fqx 'model = "glm-5.2"' "$profile_dir/$profile.config.toml" \
+      || fail "$profile does not use glm-5.2"
+    grep -Fqx 'model_context_window = 272000' "$profile_dir/$profile.config.toml" \
+      || fail "$profile context window is not 272000"
+    grep -Fqx 'base_url = "http://127.0.0.1:8317/v1"' "$profile_dir/$profile.config.toml" \
+      || fail "$profile is not loopback-bound"
+    grep -Fqx 'env_key = "FI_CLIPROXY_KEY"' "$profile_dir/$profile.config.toml" \
+      || fail "$profile does not use the local environment credential"
+  done
+  [ "$(find "$profile_dir" -maxdepth 1 -type f -name 'fi-glm-*' | wc -l | tr -d ' ')" = 2 ] \
+    || fail "installed Codex projection contains unexpected GLM profiles"
+}
+
 setting() {
   key=$1
   lock=$2
@@ -111,6 +131,10 @@ assert_full_common() {
     grep -Fqx "$ignored" "$target/.gitignore" \
       || fail "full-opt ignore block missing $ignored"
   done
+  grep -Fqx 'docs/foundation/receipts/*' "$target/.gitignore" \
+    || fail "full-opt ignore block does not keep foundation receipts local"
+  grep -Fqx '!docs/foundation/receipts/.gitkeep' "$target/.gitignore" \
+    || fail "full-opt ignore block does not preserve the receipt directory"
   assert_installed_skill_refs "$target" \
     || fail "installed skill references do not match the adopted layout"
   lock=$target/.foundation-integrity/adoption.tsv
@@ -185,6 +209,12 @@ diff -qr "$root/.agents/skills" "$codex/.agents/skills" >/dev/null \
 [ ! -e "$codex/.claude/settings.json" ] || fail "Codex install leaked Claude settings"
 [ -d "$codex/.orchestration/foundation/profiles/codex" ] \
   || fail "Codex orchestration profiles missing"
+assert_glm_projection "$codex"
+diff -qr "$root/templates/orchestration/profiles/codex" \
+  "$codex/.orchestration/foundation/profiles/codex" >/dev/null \
+  || fail "installed Codex profile tree differs from reviewed source"
+[ -x "$codex/.orchestration/foundation/scripts/cliproxy-glm.sh" ] \
+  || fail "Codex projection omitted the GLM gateway lifecycle"
 [ -x "$codex/.orchestration/foundation/scripts/start-codex-coworker.sh" ] \
   && [ -x "$codex/.orchestration/foundation/scripts/launch-codex-root.sh" ] \
   && [ -x "$codex/.orchestration/foundation/scripts/manage-codex-profiles.sh" ] \
@@ -298,6 +328,10 @@ diff -qr "$root/.claude/skills" "$both/.claude/skills" >/dev/null \
 [ -d "$both/.orchestration/foundation/profiles/codex" ] \
   && [ -d "$both/.orchestration/foundation/profiles/claude" ] \
   || fail "both-runtime orchestration profiles missing"
+assert_glm_projection "$both"
+diff -qr "$root/templates/orchestration/profiles/codex" \
+  "$both/.orchestration/foundation/profiles/codex" >/dev/null \
+  || fail "both-runtime Codex profile tree differs from reviewed source"
 
 for shared in foundation-surface.txt foundation-surface-guard.sh fitness-check.sh \
   herdr-codex-session.py herdr-pane-telemetry.py; do
