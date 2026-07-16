@@ -22,6 +22,73 @@ count_skills() {
   find "$1" -name SKILL.md -type f | wc -l | tr -d ' '
 }
 
+assert_installed_skill_refs() {
+  target=$1
+  python3 - "$target" <<'PY'
+import pathlib
+import re
+import sys
+
+target = pathlib.Path(sys.argv[1])
+skill_roots = [target / ".agents/skills", target / ".claude/skills"]
+stale_refs = (
+    "templates/claude-md-block.md",
+    "templates/adr/",
+    "templates/docs/",
+    "templates/fitness/",
+    "templates/hooks/",
+    ".foundation-integrity/hooks/",
+)
+
+for skill_root in skill_roots:
+    if not skill_root.is_dir():
+        continue
+    for skill in skill_root.rglob("*"):
+        if not skill.is_file() or skill.suffix not in {".md", ".yaml", ".yml", ".txt", ".toml"}:
+            continue
+        body = skill.read_text()
+        for stale in stale_refs:
+            if stale in body:
+                raise SystemExit(f"installed skill retains stale reference {stale!r}: {skill}")
+        if "/_third_party/" not in skill.as_posix() and "arxiv.org" in body:
+            raise SystemExit(f"installed first-party skill retains paper URL: {skill}")
+        for reference in re.findall(r"`((?:docs/(?:foundation|agents)/)[^`]+)`", body):
+            relative = reference.split("#", 1)[0].rstrip("/")
+            if not (target / relative).exists():
+                raise SystemExit(f"installed skill reference does not resolve: {skill}: {reference}")
+PY
+}
+
+assert_ignore_unmanaged_content_preserved() {
+  before=$1
+  after=$2
+  python3 - "$before" "$after" <<'PY'
+import pathlib
+import sys
+
+def unmanaged(path):
+    inside = False
+    out = []
+    for line in pathlib.Path(path).read_text().splitlines(keepends=True):
+        if line.rstrip("\n") == "# BEGIN foundation-integrity generated state":
+            inside = True
+        if not inside:
+            out.append(line)
+        if line.rstrip("\n") == "# END foundation-integrity generated state":
+            inside = False
+    return out
+
+before = unmanaged(sys.argv[1])
+after = unmanaged(sys.argv[2])
+position = 0
+for line in before:
+    try:
+        position = after.index(line, position) + 1
+    except ValueError:
+        raise SystemExit("installer changed unmanaged .gitignore content")
+PY
+}
+
 setting() {
   key=$1
   lock=$2
@@ -44,6 +111,8 @@ assert_full_common() {
     grep -Fqx "$ignored" "$target/.gitignore" \
       || fail "full-opt ignore block missing $ignored"
   done
+  assert_installed_skill_refs "$target" \
+    || fail "installed skill references do not match the adopted layout"
   lock=$target/.foundation-integrity/adoption.tsv
   [ -f "$lock" ] || fail "full-opt omitted adoption lock"
   [ "$(setting components "$lock")" = full-opt ] \
@@ -96,9 +165,15 @@ run_install --both --full-opt --dry-run --directory "$dry_run" >/dev/null \
 codex="$tmp/codex"
 mkdir -p "$codex"
 git -C "$codex" init -q
+printf '# consumer gitignore\nconsumer-cache/\n' > "$codex/.gitignore"
+cp "$codex/.gitignore" "$tmp/codex-gitignore-before"
 run_install --codex --directory "$codex" >/dev/null || fail "Codex full-opt install failed"
 assert_full_common "$codex"
+assert_ignore_unmanaged_content_preserved "$tmp/codex-gitignore-before" "$codex/.gitignore" \
+  || fail "full-opt install changed unmanaged .gitignore content"
 [ "$(count_skills "$codex/.agents/skills")" = 24 ] || fail "Codex install omitted skills"
+diff -qr "$root/.agents/skills" "$codex/.agents/skills" >/dev/null \
+  || fail "Codex install changed projected skill content"
 [ ! -e "$codex/.claude/skills" ] || fail "Codex install leaked Claude skills"
 [ -x "$codex/.codex/hooks/scripts/fitness-check.sh" ] || fail "Codex hook scripts missing"
 [ ! -e "$codex/.foundation-integrity/hooks" ] || fail "Codex install retained a separate legacy hook tree"
@@ -156,12 +231,25 @@ grep -Fqx '# Consumer rules' "$existing/AGENTS.md" \
 grep -Fqx '# Claude rules' "$existing/CLAUDE.md" \
   || fail "install changed the consumer CLAUDE.md"
 
+claude_only="$tmp/claude-only"
+mkdir -p "$claude_only"
+git -C "$claude_only" init -q
+printf '# Claude-only rules\n' > "$claude_only/CLAUDE.md"
+run_install --codex --directory "$claude_only" >/dev/null \
+  || fail "install rejected a target with only CLAUDE.md"
+cmp -s "$root/templates/setup/AGENTS.md" "$claude_only/AGENTS.md" \
+  || fail "CLAUDE-only target did not receive the generic AGENTS.md bootstrap"
+grep -Fqx '# Claude-only rules' "$claude_only/CLAUDE.md" \
+  || fail "install changed the consumer CLAUDE.md when bootstrapping AGENTS.md"
+
 claude="$tmp/claude"
 mkdir -p "$claude"
 git -C "$claude" init -q
 run_install --claude --directory "$claude" >/dev/null || fail "Claude full-opt install failed"
 assert_full_common "$claude"
 [ "$(count_skills "$claude/.claude/skills")" = 24 ] || fail "Claude install omitted skills"
+diff -qr "$root/.claude/skills" "$claude/.claude/skills" >/dev/null \
+  || fail "Claude install changed projected skill content"
 [ ! -e "$claude/.agents/skills" ] || fail "Claude install leaked Codex skills"
 [ -x "$claude/.claude/hooks/scripts/fitness-check.sh" ] || fail "Claude hook scripts missing"
 [ ! -e "$claude/.foundation-integrity/hooks" ] || fail "Claude install retained a separate legacy hook tree"
@@ -179,6 +267,10 @@ run_install --both --full-opt --directory "$both" >/dev/null || fail "both-runti
 assert_full_common "$both"
 [ "$(count_skills "$both/.agents/skills")" = 24 ] || fail "both-runtime Codex skills missing"
 [ "$(count_skills "$both/.claude/skills")" = 24 ] || fail "both-runtime Claude skills missing"
+diff -qr "$root/.agents/skills" "$both/.agents/skills" >/dev/null \
+  || fail "both-runtime Codex skill content drifted"
+diff -qr "$root/.claude/skills" "$both/.claude/skills" >/dev/null \
+  || fail "both-runtime Claude skill content drifted"
 [ -x "$both/.codex/hooks/scripts/fitness-check.sh" ] || fail "both-runtime Codex scripts missing"
 [ -x "$both/.claude/hooks/scripts/fitness-check.sh" ] || fail "both-runtime Claude scripts missing"
 [ -d "$both/.orchestration/foundation/profiles/codex" ] \
@@ -234,6 +326,27 @@ fi
 legacy_source="$tmp/legacy-source"
 mkdir -p "$legacy_source"
 git -C "$root" archive HEAD | tar -x -C "$legacy_source"
+python3 - "$legacy_source" <<'PY'
+import pathlib
+import sys
+
+root = pathlib.Path(sys.argv[1])
+full_opt = root / "templates/setup/full-opt.sh"
+body = full_opt.read_text()
+old = "codex_hook_root=.codex/hooks/scripts"
+new = "codex_hook_root=.foundation-integrity/hooks"
+if body.count(old) != 1:
+    raise SystemExit("legacy fixture could not locate the current Codex hook owner")
+full_opt.write_text(body.replace(old, new))
+
+codex_hooks = root / "templates/hooks/codex-hooks.json"
+body = codex_hooks.read_text()
+old = ".codex/hooks/scripts/"
+new = ".foundation-integrity/hooks/"
+if old not in body:
+    raise SystemExit("legacy fixture could not locate current Codex hook references")
+codex_hooks.write_text(body.replace(old, new))
+PY
 legacy="$tmp/legacy"
 mkdir -p "$legacy"
 git -C "$legacy" init -q
@@ -308,9 +421,16 @@ FI_TEST_INTERRUPT_AFTER= run_install --codex --directory "$legacy" >/dev/null \
   || fail "migration omitted the new Codex hook scripts"
 [ ! -e "$legacy/.foundation-integrity/hooks/fitness-check.sh" ] \
   || fail "migration retained the old hook script tree"
+if [ -d "$legacy/.foundation-integrity/hooks" ] \
+  && find "$legacy/.foundation-integrity/hooks" -type f -o -type l \
+    | grep -q .; then
+  fail "migration retained files in the old hook tree"
+fi
 [ ! -e "$legacy/.foundation/migrations/foundation-integrity-v2-v3.tsv" ] \
   || fail "migration recovery journal was not retired"
 [ -f "$legacy/AGENTS.md" ] || fail "migration omitted the generic AGENTS bootstrap"
+diff -qr "$root/.agents/skills" "$legacy/.agents/skills" >/dev/null \
+  || fail "migration left skill projection content stale"
 
 conflict="$tmp/conflict"
 mkdir -p "$conflict/.codex" "$conflict/.claude"

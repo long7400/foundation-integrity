@@ -5,9 +5,10 @@ non-trivial feature, module, migration, refactor, or security/reliability/perfor
 change, falsify the load-bearing foundation claims first.
 
 The canonical operating rules live in the consumer's existing `AGENTS.md` or
-`CLAUDE.md`; that file remains entirely consumer-owned. Installation does not create,
-merge, replace, or claim either instruction file. The receipt guide is
-`docs/foundation/foundation-audit.md`; the compact rationale is
+`CLAUDE.md`. When `AGENTS.md` is absent, installation creates a short consumer-neutral
+one; an existing instruction file is never modified or claimed. The three reusable
+project references are `docs/foundation/foundation-audit.md`,
+`docs/foundation/foundation-pattern-language.md`, and
 `docs/foundation/why-foundation-integrity.md`.
 
 Project-specific receipts belong under `docs/foundation/receipts/`. Working research
