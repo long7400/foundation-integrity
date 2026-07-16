@@ -15,3 +15,4 @@ does not permit self-approval; independent review remains required.
 
 [features]
 multi_agent = false
+multi_agent_v2 = false

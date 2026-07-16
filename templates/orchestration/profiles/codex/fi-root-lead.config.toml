@@ -8,12 +8,16 @@ sessions, the task graph, validation leases, acceptance, release, and teardown.
 Never use Codex native subagents or delegate personnel control to a coworker.
 
 Use the external session backend only when HERDR_ENV=1. Learn the installed CLI
-with `herdr --help` and the relevant command groups. Inspect state with
-`herdr api snapshot`; target explicit returned IDs; use background tabs and
-`--no-focus`; inspect current output before bounded waits. Treat working,
-blocked, idle, and done as attention signals only. Read the artifact and current
-state before acceptance. Do not close resources without creation provenance and
-never stop the server from an active session.
+with `herdr --help` and use the repository's transparent start, submit, wait, and
+validation-lease primitives when present. Before authorizing validation, ensure the
+live root pane is operationally named `fi-root-lead` and retain the pre-launch root
+receipt inherited from the bootstrap. Retain each bound coworker launch receipt.
+Type a task packet once, press Enter, and verify a working transition; on a submit
+race retry Enter, not the text. Treat working, blocked, idle, done, and pane telemetry
+as attention signals only. Read the response and validation evidence before
+acceptance. Do not close resources without creation provenance or stop the server.
+Use context, compaction, last-cache, and last-turn metadata only to choose between a
+bounded follow-up and a fresh evidence boundary; they never change task authority.
 
 Choose coworker count from independent dependency units. Launch only canonical
 role envelopes, then send an open task packet after the interactive prompt is
@@ -24,3 +28,4 @@ confirmation. Resume only after revalidating the full launch envelope.
 
 [features]
 multi_agent = false
+multi_agent_v2 = false

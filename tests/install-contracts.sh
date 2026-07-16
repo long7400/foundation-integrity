@@ -176,11 +176,27 @@ diff -qr "$root/.agents/skills" "$codex/.agents/skills" >/dev/null \
   || fail "Codex install changed projected skill content"
 [ ! -e "$codex/.claude/skills" ] || fail "Codex install leaked Claude skills"
 [ -x "$codex/.codex/hooks/scripts/fitness-check.sh" ] || fail "Codex hook scripts missing"
+[ -x "$codex/.codex/hooks/scripts/herdr-pane-telemetry.py" ] \
+  || fail "Codex pane telemetry hook missing"
+[ -x "$codex/.codex/hooks/scripts/herdr-codex-session.py" ] \
+  || fail "Codex session continuity hook missing"
 [ ! -e "$codex/.foundation-integrity/hooks" ] || fail "Codex install retained a separate legacy hook tree"
 [ -f "$codex/.codex/hooks.json" ] || fail "Codex hooks.json missing"
 [ ! -e "$codex/.claude/settings.json" ] || fail "Codex install leaked Claude settings"
 [ -d "$codex/.orchestration/foundation/profiles/codex" ] \
   || fail "Codex orchestration profiles missing"
+[ -x "$codex/.orchestration/foundation/scripts/start-codex-coworker.sh" ] \
+  && [ -x "$codex/.orchestration/foundation/scripts/launch-codex-root.sh" ] \
+  && [ -x "$codex/.orchestration/foundation/scripts/manage-codex-profiles.sh" ] \
+  && [ -x "$codex/.orchestration/foundation/scripts/attest-codex-profile.py" ] \
+  && [ -x "$codex/.orchestration/foundation/scripts/validation-lease.sh" ] \
+  || fail "Codex orchestration runtime primitives missing"
+[ -f "$codex/.orchestration/foundation/task-packet.md" ] \
+  || fail "Codex orchestration task packet missing"
+[ ! -e "$codex/.orchestration/foundation/run-contract.tsv" ] \
+  || fail "Codex install retained the orchestration run contract"
+[ ! -e "$codex/.orchestration/foundation/role-model-matrix.tsv" ] \
+  || fail "Codex install retained the role/model matrix"
 [ ! -e "$codex/.orchestration/foundation/profiles/claude" ] \
   || fail "Codex install leaked Claude orchestration profiles"
 cmp -s "$root/templates/setup/AGENTS.md" "$codex/AGENTS.md" \
@@ -273,11 +289,18 @@ diff -qr "$root/.claude/skills" "$both/.claude/skills" >/dev/null \
   || fail "both-runtime Claude skill content drifted"
 [ -x "$both/.codex/hooks/scripts/fitness-check.sh" ] || fail "both-runtime Codex scripts missing"
 [ -x "$both/.claude/hooks/scripts/fitness-check.sh" ] || fail "both-runtime Claude scripts missing"
+[ -x "$both/.codex/hooks/scripts/herdr-pane-telemetry.py" ] \
+  && [ -x "$both/.claude/hooks/scripts/herdr-pane-telemetry.py" ] \
+  || fail "both-runtime telemetry script missing"
+[ -x "$both/.codex/hooks/scripts/herdr-codex-session.py" ] \
+  && [ -x "$both/.claude/hooks/scripts/herdr-codex-session.py" ] \
+  || fail "both-runtime session continuity script missing"
 [ -d "$both/.orchestration/foundation/profiles/codex" ] \
   && [ -d "$both/.orchestration/foundation/profiles/claude" ] \
   || fail "both-runtime orchestration profiles missing"
 
-for shared in foundation-surface.txt foundation-surface-guard.sh fitness-check.sh; do
+for shared in foundation-surface.txt foundation-surface-guard.sh fitness-check.sh \
+  herdr-codex-session.py herdr-pane-telemetry.py; do
   cmp -s "$both/.codex/hooks/scripts/$shared" "$both/.claude/hooks/scripts/$shared" \
     || fail "both-runtime copies diverged for $shared"
 done

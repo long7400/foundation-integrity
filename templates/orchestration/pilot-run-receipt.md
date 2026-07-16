@@ -1,88 +1,43 @@
-# Coworker pilot run receipt
+# Coworker pilot receipt
 
-Use one copy per run. This is a comparison and lifecycle record, not an automatic score or promotion gate.
+Use this only to decide whether external coworkers add enough counterevidence,
+traceability, or recovery value to justify their coordination cost. It is not an
+automatic score or acceptance gate.
 
-Keep raw current-state, worker, transcript, baseline, and pilot artifacts under ignored
-`.foundation/orchestration/` while the run is active. After the root decision, promote the
-accepted decision-lossless receipt (verdict, rationale, decisive evidence hashes,
-strongest alternative, and next removal point) into `docs/foundation/receipts/` or an
-ADR. Never leave durable acceptance represented only by ignored `.foundation/` state.
+## Run
 
-Fill the machine-bound block and run `scripts/check-pilot-run-receipt.sh <run-contract.tsv> <pilot-run-receipt.md> <role-model-matrix.tsv>`. The validator binds the contract/matrix, root current state, exact worker artifact, transcript, and baseline/pilot result artifacts by SHA-256. It also requires fresh-session policy and a passed write-isolation smoke only when the contract contains an implementer. It still does not validate reasoning quality or the root's decision.
+- Date, repository revision, and requested outcome:
+- Root and fresh coworker session IDs:
+- Root pre-launch receipt (profile provenance, pane IDs, PID/start, cwd, argv):
+- Exact task packet or its SHA-256:
+- Bound launch receipt (profile object/hash; model/effort/access values derived from
+  the observed launch argv, not continuously attested runtime state; observed session
+  if available; mandatory process PID/start/argv/cwd and IDs):
+- Sessions created by this run and therefore eligible for teardown:
 
-```markdown
-<!-- foundation-integrity-coworker-pilot:v2
-run-id: <stable-run-id>
-contract-sha256: <sha256-of-run-contract.tsv>
-role-model-matrix-sha256: <sha256-of-role-model-matrix.tsv>
-runtime: <must-equal-contract-runtime>
-current-state-path: <must-equal-contract-current_state_path>
-current-state-revision: <git-revision-or-artifact-hash>
-current-state-sha256: <sha256-of-current-state-path>
-worker-artifact-path: .foundation/orchestration/<preserved-worker-output>
-worker-artifact-sha256: <sha256-of-worker-artifact>
-transcript-path: .foundation/orchestration/<transport-transcript-or-excerpt>
-transcript-sha256: <sha256-of-transcript>
-write-isolation: <pass when an implementer exists; otherwise not-applicable>
-session-policy: fresh-only
-baseline-artifact-path: .foundation/orchestration/<simple-baseline-result>
-baseline-artifact-sha256: <sha256-of-baseline-artifact>
-pilot-artifact-path: .foundation/orchestration/<coworker-result>
-pilot-artifact-sha256: <sha256-of-pilot-artifact>
-incremental-value: <material-counterevidence|traceability|recovery|none>
-coordination-cost: <bounded-time-or-turn-count>
-decision: keep|amend|remove|inconclusive
--->
-```
+## Evidence
 
-## Identity
+- Baseline result:
+- Coworker observations and exact evidence pointers:
+- Counterevidence, disagreements, and unknown load-bearing facts:
+- Validation lease, revision, cwd, exact command, exit status, and output:
+- Strongest alternative:
 
-- Run ID (same as bound block):
-- Date:
-- Repository/worktree and revision:
-- Root current-state artifact (same as bound block and contract `current_state_path`):
-- Root current-state revision/hash (same as bound block):
-- Preserved worker artifact and SHA-256 (same as bound block):
-- Transport transcript/excerpt and SHA-256 (same as bound block):
-- Run-contract artifact:
-- Role/model matrix artifact and hash (same as bound block):
-- Runtime and actor/profile bindings:
-- Effective launch argv and role-prompt hashes:
-- Maintainer-chosen review window:
+## Coordination failures
 
-## Baseline
-
-- Simplest permitted baseline:
-- Baseline result/artifact and SHA-256 (same as bound block):
-- Why this is a fair comparison:
-
-## Coworker result
-
-- Task packets:
-- Worker/reviewer artifacts:
-- Pilot result artifact and SHA-256 (same as bound block):
-- Validation evidence, command, cwd, revision, and exit status:
-- Incremental counterevidence, traceability, or recovery value over baseline:
-- Findings duplicated from baseline:
-
-## Coordination and failure evidence
-
-- Root coordination time or turn count:
-- Worker time or turn count:
-- Misrouted messages, provenance loss, duplicate work, or status-as-truth incidents:
-- Resume attempted: yes/no
-- Resume launch envelope revalidated: rejected/not-run
-- Fresh session IDs or rejected resume IDs (must satisfy `fresh-only`):
-- Implementer write-isolation smoke: pass when a write-capable role exists; otherwise not-applicable:
-- Effective model/effort/tool/permission observations:
-- Unknown load-bearing facts:
+- Prompt submitted once and runtime transition observed: yes/no
+- Misrouting, duplicate prompt/work, status-as-truth, or provenance loss:
+- Blocked/time-out recovery:
+- Root and coworker time or turn count:
 
 ## Root decision
 
-- Artifacts accepted/rejected/cancelled:
-- Did this run justify its coordination cost? yes/no/inconclusive
+- Accepted, rejected, or cancelled artifacts:
+- Incremental value over the baseline:
 - Keep, amend, or remove the pilot:
-- Rationale and strongest alternative:
-- Next review/removal decision point:
+- Rationale and next removal/review point:
 
-`not-run` and `inconclusive` are not evidence of a preserved launch envelope. Resume is not accepted by the current pilot. The receipt informs an explicit maintainer decision; it never promotes the pilot automatically.
+Raw output may remain in the live session or a root-selected `$TMPDIR`. If the
+decision matters later, promote this concise receipt and stable evidence pointers to
+the project's chosen durable owner before teardown. Never claim that pane status,
+profile text, telemetry, or this self-authored receipt proves correctness.

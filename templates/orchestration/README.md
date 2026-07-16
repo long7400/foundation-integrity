@@ -1,19 +1,19 @@
-# Foundation Integrity orchestration pilot
+# Foundation Integrity external coworker pilot
 
-This directory is an inert, project-owned policy projection. It is not a skill and
-does not open panes, install profiles, mutate global config, or create runtime state.
+This directory is an inert, project-owned projection. It does not open panes, install
+user profiles, create runtime state, or activate orchestration.
 
-Use it only when the user explicitly requests an external coworker pilot and
-`HERDR_ENV=1`. The root reads `model-role-policy.md`, `coworker-protocol.md`, only
-`runtime/codex.md` or `runtime/claude.md` for the active runtime, and the matching
-`run-contract`/matrix. Workers receive an
-open task packet and safety scope; they do not receive transport topology or control
-authority.
+Use it only after an explicit user request and only when `HERDR_ENV=1`. The root reads
+`coworker-protocol.md`, `model-role-policy.md`, and the active runtime adapter.
+Coworkers receive an open task packet and safety scope, not transport topology.
 
-Static policy lives here. Live locks, runs, transcripts, and worker artifacts belong
-under ignored `.foundation/orchestration/`. A parked run is not accepted until the
-root reconciles its artifacts and promotes any decision-lossless evidence to the
-project's chosen durable owner.
+The Codex adapter includes transparent root primitives for start, verified submit,
+bounded wait/collection, and validation serialization. Claude currently receives a
+reviewed static launch envelope plus the shared validation lease, not an equivalent
+receipt-bound lifecycle claim. None of this implements a task graph, acceptance
+engine, daemon, or state machine. The installer copies only the selected runtime
+profile subtree and never installs user profiles or FirstMate.
 
-The installer copies only the selected runtime profile subtree. It never copies the
-other runtime's profiles and never activates the pilot automatically.
+Live output stays in the session or a root-selected temporary directory. Durable
+accepted evidence belongs to the adopting project's chosen owner; this pilot never
+creates a repository task-state directory.

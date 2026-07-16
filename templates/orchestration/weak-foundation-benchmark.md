@@ -25,8 +25,8 @@ Do not tell either run which trap was planted. The task packet states facts and 
 
 - immutable repository revision or fixture digest;
 - exact task packet and acceptance-contract version;
-- baseline current-state/result artifact;
-- pilot current-state/result artifact;
+- baseline result;
+- pilot result;
 - preserved worker output and transport transcript digests;
 - exact validation commands, cwd, revision, exit status, and artifacts;
 - coordination time or turn count;

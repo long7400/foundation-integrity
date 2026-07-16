@@ -104,6 +104,22 @@ if ".codex/hooks/scripts/" not in codex_hooks or ".foundation-integrity/hooks/" 
     raise SystemExit("Codex hook config has the wrong script owner")
 if ".claude/hooks/scripts/" not in claude_hooks or ".foundation-integrity/hooks/" in claude_hooks:
     raise SystemExit("Claude hook config has the wrong script owner")
+codex_hook_data = json.loads(codex_hooks)
+for event in ("SessionStart", "PostCompact", "Stop"):
+    commands = [
+        hook.get("command", "")
+        for group in codex_hook_data.get("hooks", {}).get(event, [])
+        for hook in group.get("hooks", [])
+    ]
+    if not any("herdr-pane-telemetry.py" in command for command in commands):
+        raise SystemExit(f"Codex telemetry is not wired to {event}")
+session_commands = [
+    hook.get("command", "")
+    for group in codex_hook_data.get("hooks", {}).get("SessionStart", [])
+    for hook in group.get("hooks", [])
+]
+if not any("herdr-codex-session.py" in command for command in session_commands):
+    raise SystemExit("Codex session continuity reporter is not wired to SessionStart")
 
 for path in (root / "templates/hooks/git/pre-commit", root / "templates/hooks/git/pre-push"):
     body = path.read_text()
@@ -132,13 +148,8 @@ PY
 (cd "$root" && shasum -a 256 -c third_party/mattpocock-skills/promoted-files.sha256 \
   >/dev/null) || fail "vendored companion snapshot hash drift"
 
-sh "$root/templates/orchestration/scripts/check-role-model-matrix.sh" \
-  "$root/templates/orchestration/role-model-matrix.tsv" \
-  >/dev/null || fail "role/model matrix rejected"
-
-sh "$root/templates/orchestration/scripts/check-run-contract.sh" \
-  "$root/templates/orchestration/run-contract.tsv" \
-  >/dev/null || fail "orchestration run contract rejected"
+sh "$root/tests/orchestration-contracts.sh" \
+  || fail "orchestration contracts failed"
 
 sh "$root/tests/install-contracts.sh" || fail "install contracts failed"
 
