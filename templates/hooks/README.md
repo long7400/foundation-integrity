@@ -47,6 +47,17 @@ pre-commit warns, while pre-push blocks rather than guessing another owner.
 - `<runtime>/hooks/scripts/fitness-check.sh` — run the wired tier-3 adapter (if
   any) plus a cheap tier-2 delta. Non-zero exit = a structural rule broke. Fast; safe
   to run on every edit/commit.
+- `.codex/hooks/scripts/herdr-pane-telemetry.py` — on Codex `SessionStart`,
+  `PostCompact`, and `Stop`, report display-only context, compaction, last cache-hit,
+  cumulative-token, and idle-age metadata when the session is inside Herdr. It never
+  reports lifecycle state or acceptance, and missing transcript fields clear the
+  affected display tokens rather than guessing. Coworker launches remove inherited
+  Herdr topology variables; the hook correlates its Codex ancestor PID with pane
+  process information instead of exposing pane/workspace IDs to the agent context.
+- `.codex/hooks/scripts/herdr-codex-session.py` — on Codex `SessionStart`, report
+  only the real Codex session ID for continuity. It has a distinct source from the
+  metadata hook, discovers the pane by process ancestry when topology variables were
+  sanitized, and never reports working/idle/done or acceptance.
 - `<runtime>/hooks/scripts/foundation-surface-guard.sh` — did this
   change touch a **foundation-surface** path (public API, schema, migration, auth,
   core domain, shared module) without a **valid v2 receipt in the same change set that

@@ -1,138 +1,237 @@
-# Herdr + Codex pilot adapter
+# Herdr + Codex adapter
 
-This is a transparent mapping of the transport-neutral [coworker protocol](../coworker-protocol.md). It is not a Herdr skill, a Codex subagent configuration, or a FirstMate installation.
+This maps the [coworker protocol](../coworker-protocol.md) to fresh top-level Codex
+sessions. It is not a skill, native subagent setup, or FirstMate installation.
 
-## Effects ledger
+## Effects and ownership
 
-| Layer | What it affects | What it does not own |
-| --- | --- | --- |
-| Herdr session | PTYs, workspaces/tabs/panes, input, bounded reads/waits, attention status, optional session restore | task decomposition, acceptance, evidence, worktree ownership, merge/release |
-| Herdr Codex integration | reports Codex session identity to Herdr; current releases may use that identity to relaunch `codex resume <id>` during restore | the Codex profile, developer instruction, sandbox, or authority contract unless the relaunch envelope explicitly rebinds them |
-| Codex profile | a named configuration overlay for the launched Codex invocation: model/effort, sandbox/approval, `developer_instructions`, features, skill enablement, and other valid keys | sibling processes, Herdr policy, or any invocation not launched/resumed with an equivalent profile |
-| `AGENTS.md` / project guidance | repository-owned durable instructions loaded by each Codex thread according to its instruction chain | machine-enforced capability boundaries |
-| Run contract + receipts | workflow authority, actors, validation lease, artifacts, and acceptance evidence | terminal lifecycle implementation |
+- Herdr owns PTYs, panes, input, bounded reads/waits, attention status, and optional
+  display metadata.
+- Codex profiles own the reviewed model/effort, sandbox, approval, role instruction,
+  and both native-delegation feature disables for a process launched with that
+  profile.
+- Project `AGENTS.md` remains the durable instruction owner.
+- The root owns the task graph, validation lease, acceptance, release, and teardown.
 
-Before enabling or installing a Herdr integration, inspect `herdr integration` and the generated changes. The integration should be limited to identity/status reporting hooks; it must not inject department workflow instructions into coworkers. Record exact hook/config paths and the uninstall/disable command in the run receipt.
+Herdr owns lifecycle status. The dedicated SessionStart hook may report the real Codex
+session ID for continuity, while the display hook uses only `pane.report_metadata`.
+Neither hook reports acceptance or takes over `report-agent` state authority.
 
-## Profile rule
+## Profiles
 
-Use user-level Codex profile files (`$CODEX_HOME/<name>.config.toml`) and launch with `codex --profile <name>`. Profiles are explicit layers, not inheritance from the root process. The canonical templates and approved mapping live under [`profiles/codex/`](../profiles/codex/) and [`role-model-matrix.tsv`](../role-model-matrix.tsv).
+Review and explicitly install the five envelopes before enabling the Codex pilot:
 
-Keep any reviewed global `model_instructions_file` untouched. Worker profiles should add role behavior with `developer_instructions`; they must not replace the base instruction file or duplicate `AGENTS.md`.
+```sh
+sh .orchestration/foundation/scripts/manage-codex-profiles.sh status
+sh .orchestration/foundation/scripts/manage-codex-profiles.sh install
+```
 
-Example peer profile:
+This affects only future `codex --profile fi-*` launches. It does not modify Herdr,
+ordinary Codex sessions, the base instruction file, or an already-running thread.
+Do not install a transport-control skill for coworkers. Only `fi-root-lead` contains
+controller behavior; non-root profiles contain no Herdr commands or topology.
+
+The manager creates every destination exclusively instead of claiming or overwriting
+a path checked earlier, then writes an owner-only
+`foundation-integrity-profiles.json` manifest in Codex home. Removal atomically moves
+that manifest and the owned profiles into a private
+quarantine, verifies hashes there, and only then deletes them; a raced replacement at
+the public path is never removed. An identical user-created file without provenance
+is never deleted, and drift requires explicit manual reconciliation.
+
+One shared attester is used by root authorization, launch, submit, and wait. It
+requires the installed object's device/inode/hash to match the v2 owner manifest and
+its bytes to match the reviewed profile shipped beside the scripts. A hand-written
+or drifted file with a supported name is not launch authority. Because trusted
+project config has higher precedence than a named profile, the attester also derives
+canonical CLI overrides for model, effort, sandbox, approval, both known
+native-delegation feature flags, and role instructions. Root and coworker launch
+receipts bind the observed launch argv, not every mutable runtime setting.
+
+Project `AGENTS.md`, model instruction sources, rules, and reviewed hooks remain
+model-visible by design. The role developer instruction has higher authority than
+those project instructions, but it is not semantic isolation from the project. The
+pilot protects against same-key configuration replacement and accidental personnel
+control; it is not a sandbox against a malicious trusted repository.
+
+Remove matching files after no live session depends on them:
+
+```sh
+sh .orchestration/foundation/scripts/manage-codex-profiles.sh remove
+```
+
+## Root workflow
+
+From a plain shell in the intended Herdr root pane, pre-attest and `exec` the root.
+The receipt path must be new and root-owned:
+
+```sh
+exec sh .orchestration/foundation/scripts/launch-codex-root.sh \
+  "${TMPDIR:-/tmp}/fi-root.launch.json" "$PWD"
+```
+
+The `exec` preserves PID/start identity across the bootstrap-to-Codex boundary and
+exports the receipt path into that root process. The bootstrap refuses an existing
+receipt path. Keep it only for that live root; after revoke and root exit, remove it
+from the root-selected temporary directory. Load-bearing role fields are repeated as
+CLI overrides so project `.codex/config.toml` cannot re-enable native delegation or
+replace the root envelope. Then, from the Codex root session:
+
+```sh
+herdr agent rename "${HERDR_PANE_ID:?}" fi-root-lead
+export FI_VALIDATION_TOKEN="$(sh .orchestration/foundation/scripts/validation-lease.sh authorize)"
+
+# 1. Start a fresh coworker and retain the bound launch receipt.
+sh .orchestration/foundation/scripts/start-codex-coworker.sh \
+  claim-falsifier fi-peer-challenge >"${TMPDIR:-/tmp}/claim-falsifier.launch.json"
+
+# 2. Type the packet once, press Enter, and verify the pane actually becomes working.
+sh .orchestration/foundation/scripts/submit-coworker-turn.sh \
+  "${TMPDIR:-/tmp}/claim-falsifier.launch.json" \
+  < .orchestration/foundation/task-packet.md
+
+# 3. Stop waiting on idle, done, or blocked; print recent output for root inspection.
+sh .orchestration/foundation/scripts/wait-coworker-turn.sh \
+  "${TMPDIR:-/tmp}/claim-falsifier.launch.json" 120000 300
+```
+
+`agent send` only writes literal text. The submit primitive therefore presses Enter
+and verifies `working`; if the first Enter races, it retries Enter only, never the task
+text. Submit and wait re-check workspace, tab, pane, terminal, any observed Codex
+session, and the foreground PID/start identity/argv/cwd against the launch receipt, so
+a stale or same-command replacement cannot satisfy the workflow. Session continuity
+may be unavailable before the first turn; PID/start identity remains mandatory. A
+status result still does not mean the task is correct.
+
+The launcher validates required profile fields and both native-delegation disables, derives the
+same high-precedence CLI envelope, records the profile object/hash before launch,
+rejects any object/content change before receipt, then observes the foreground Codex
+PID/start identity/argv/cwd. This
+attests the visible launch envelope against accidental concurrent replacement; it is
+not a same-user security boundary and cannot expose every merged global config effect.
+
+It removes inherited `HERDR_*` variables before starting the coworker. That keeps
+transport IDs out of ordinary agent context but is not a security boundary against a
+same-user process that deliberately discovers installed binaries or OS state.
+
+The shell contract uses a fake transport only for deterministic command-shape and
+failure tests. Before adopting or after a Herdr/Codex upgrade, run the opt-in real
+process probe from a live `fi-root-lead` session after the profiles are installed:
+
+```sh
+export FI_CODEX_BIN=/absolute/path/from/audited-install-record/codex
+export FI_CODEX_SHA256=<sha256-from-that-independent-record>
+sh tests/codex-orchestration-acceptance.sh
+sh tests/herdr-runtime-smoke.sh fi-peer-challenge
+sh tests/herdr-runtime-smoke.sh --with-turn fi-peer-challenge
+```
+
+The first command is the Codex release tier: unlike portable repository contracts,
+it fails closed when the declared absolute binary path or supplied SHA-256 is absent
+or mismatched, then observes same-key merged configuration through that resolved path
+without spending a model turn. This proves that the observed file bytes match the
+operator-supplied digest; it does not authenticate the digest, interpreter chain, or
+local verifier environment. Run it only with a trusted shell/Python/hash toolchain,
+stable installation path, and digest from an authenticated independent record. Do
+not derive the expected hash from the current `PATH` in the same command and call
+that provenance. A release must not claim Codex envelope compatibility from
+`tests/repo-contracts.sh` alone.
+
+The default opens a real background Herdr tab, observes a live Codex PID and exact
+receipt, checks the OS process environment for leaked root topology/capabilities,
+and writes/reads real pane metadata without spending a model turn. `--with-turn`
+additionally proves submit, `working`, bounded completion, output collection, and
+the expected response. A unit stub is never presented as this integration proof.
+
+For a second opinion, start a separate fresh `fi-peer-challenge` session and provide
+the original question, source snapshot, and evidence boundary without the author's
+persuasive narrative. Use `fi-peer-scout` only for bounded mechanism discovery; it
+may point to a dangerous seam but must not settle a difficult foundation claim.
+
+Before a heavy or flaky validation command:
+
+```sh
+export FI_VALIDATION_OWNER="${HERDR_PANE_ID:?}:root"
+export FI_VALIDATION_COMMAND='sh tests/repo-contracts.sh'
+sh .orchestration/foundation/scripts/validation-lease.sh acquire
+sh tests/repo-contracts.sh
+status=$?
+sh .orchestration/foundation/scripts/validation-lease.sh release
+exit "$status"
+```
+
+Authorization requires the live Codex pane to carry the operational root designation
+`fi-root-lead`, run `codex --profile fi-root-lead` from the current worktree, and match
+the immutable facts recorded immediately before `exec`: pane IDs, PID/start, cwd,
+argv, and canonical v2 profile provenance with both delegation flags disabled. The capability is
+then bound to that receipt, session-if-observed, and caller ancestry. Git repository-
+selection variables are ignored and authority creation is exclusive, so linked
+worktrees contend on one Git-common-dir authority and lease. This prevents accidental
+peer, ordinary-session, or post-launch profile substitution authority, not malicious
+same-user kernel-level impersonation. After all work and leases end, run
+`validation-lease.sh revoke`; there is no automatic stale takeover.
+
+## Pane telemetry
+
+The Codex project hook runs `herdr-pane-telemetry.py` on `SessionStart`,
+`PostCompact`, and `Stop`. Because coworker topology variables are sanitized, the
+hook correlates its Codex ancestor PID with Herdr pane process information, then uses
+only `pane.report_metadata` for display. Session continuity is handled by the separate
+`herdr-codex-session.py` SessionStart hook; lifecycle state remains Herdr-owned. The
+display fields are:
+
+- context used/left using the same last-request calculation as Codex v0.144.5;
+- top-level compact count;
+- last request cache ratio and cached input tokens;
+- cumulative session tokens (`spent`), which is not context occupancy;
+- last observed Stop time and `idle since` time; and
+- `hot?`, `cold?`, or `cache uncertain` as an explicitly fallible hint.
+
+The hook reads current transcript records best-effort. Immediately after
+`PostCompact` it reports context/cache as `pending`, because the newest token record
+may still describe the pre-compact window. If fields disappear or parsing fails, it
+clears those tokens and exits successfully. `idle since` is a timestamp, not a live
+timer. A prior cache hit does not prove the next turn will hit cache or its quota cost.
+
+Herdr v0.7.4 can render the tokens with:
 
 ```toml
-# ~/.codex/fi-peer-challenge.config.toml
-model = "gpt-5.6-sol"
-model_reasoning_effort = "medium"
-sandbox_mode = "read-only"
-approval_policy = "never"
-developer_instructions = """
-You are an independent read-only peer handling challenge work. Speak directly
-with the decision owner. Do not delegate or supervise other agents. Expand the
-problem space, seek primary counterevidence, and report unknowns and the
-strongest alternative. Do not use or inspect transport-control mechanisms.
-"""
-
-[features]
-multi_agent = false
+[ui.sidebar.agents.rows_by_agent]
+codex = [
+  ["state_icon", "agent", "state_text"],
+  ["$ctx", "$left", "$compact"],
+  ["$cache_ratio", "$cached", "$cache_hint"],
+  ["$spent", "$idle"],
+  ["$last_turn"],
+  ["workspace", "tab"],
+]
 ```
 
-An implementer profile may use `workspace-write`, but only with a worktree and write scope recorded in the run contract. A peer stays read-only and receives no author narrative for challenge work. Do not install a transport-control skill for any role. Root controller behavior is plain `developer_instructions` in the root profile; non-root profiles contain no backend protocol.
+Reload with `herdr server reload-config`. Metadata has a 24-hour TTL and is ephemeral
+across pane/server lifecycle; it is an attention/economics aid, not task state.
 
-## Explicit install, update, and removal
+### Another turn or a fresh session
 
-The repository does not install profiles automatically. Review the files, then copy
-only the five Codex envelopes:
+The root may ask another turn in the same live session when the objective, role,
+source snapshot, and acceptance contract are unchanged and the follow-up materially
+benefits from the existing context. Prefer a fresh session when the role or question
+changes, clean-room independence matters, context left is low, repeated compaction has
+discarded useful detail, or the next task is broad enough to deserve a new evidence
+boundary.
 
-```sh
-cp .orchestration/foundation/profiles/codex/fi-*.config.toml "$HOME/.codex/"
-rm -f "$HOME/.codex/fi-worker-medium.config.toml" \
-  "$HOME/.codex/fi-peer-max.config.toml" \
-  "$HOME/.codex/fi-implementer-medium.config.toml" \
-  "$HOME/.codex/fi-implementer-max.config.toml"
-```
+High last-turn cache ratio plus a short idle interval may make one more turn cheaper;
+`hot?` is only an economic hint. It must not override context risk, independence, or
+authority boundaries. A session ID may be recorded to explain continuity, but it is
+never worker identity or correctness evidence.
 
-This affects only future `codex --profile fi-*` launches. It does not change the
-base model, base instruction override, ordinary unprofiled sessions, Herdr itself,
-or an already-running session. Do not copy a delegated-work block into user-wide
-`AGENTS.md`; explicit role behavior belongs in the profiles.
+## Resume and teardown
 
-Herdr's Codex identity/status integration is a separate optional mechanism. Inspect
-its generated changes before enabling it:
+The pilot is fresh-only. `codex resume <id>` restores conversation continuity but has
+not yet proved the same profile, developer instructions, sandbox, approval posture,
+cwd, worktree, or acceptance contract. Use a fresh thread for accepted independent
+review.
 
-```sh
-herdr integration status
-herdr integration install codex
-herdr integration uninstall codex
-```
-
-Removing the pilot means uninstalling the integration if it is unwanted, deleting
-the five installed `fi-*.config.toml` files after no live session depends on them,
-and removing project references. Deleting repository templates alone does not undo
-already-copied user profiles or hooks.
-
-## Transparent launch sequence
-
-1. Verify the root is already inside Herdr (`HERDR_ENV=1`) and record Herdr/Codex versions.
-2. Write and validate a copy of [`run-contract.tsv`](../run-contract.tsv) against [`role-model-matrix.tsv`](../role-model-matrix.tsv), including runtime/profile bindings, the root-bound `current_state_path`, fresh-session policy, root-owned validation, and typed implementer scopes.
-3. Acquire the transparent controller lock with `sh .orchestration/foundation/scripts/controller-lock.sh acquire`; a stale lock requires human inspection, never automatic takeover.
-4. Before any write-capable actor, create an isolated worktree and record a disposable sentinel smoke proving allowed writes succeed and out-of-scope writes are rejected by the actual runtime envelope. No `pass`, no writer.
-5. Create one background tab per coworker so repeated right-splits cannot shrink the root pane. Use IDs returned by Herdr JSON; never construct IDs from display numbers.
-6. Start only the normal Codex interactive executable with the selected canonical profile. Do not pass the task as an argv prompt.
-7. Wait for `idle`, then submit the open task packet with explicit pane targeting.
-8. Wait for `working`; later treat either `idle` or `done` as possible turn completion. Inspect the pane and artifact before deciding.
-9. Keep the root as the only Herdr controller. Coworkers do not call Herdr and do not know the department topology.
-10. Preserve the worker response and transport transcript as separate SHA-256-bound artifacts, reconcile them into the root current-state record, fill [`pilot-run-receipt.md`](../pilot-run-receipt.md), and release the controller lock only after acceptance/teardown. A green validator is not runtime or acceptance evidence.
-
-Illustrative commands; read IDs from each JSON response:
-
-```sh
-herdr tab create --workspace "$HERDR_WORKSPACE_ID" --cwd "$PWD" --label "peer-a" --no-focus
-# Read the created tab/pane IDs from JSON.
-herdr pane run <pane-id> "codex --profile fi-peer-challenge"
-herdr wait agent-status <pane-id> --status idle --timeout 30000
-herdr pane run <pane-id> "<open task packet>"
-herdr wait agent-status <pane-id> --status working --timeout 30000
-```
-
-Use `--no-focus`, explicit IDs, and bounded waits. Inspect before waiting for a future transition. Never close a pane or tab without a creation receipt showing this run owns it.
-
-## Status semantics
-
-- `working` — attention signal that the agent is generating or otherwise detected as active.
-- `blocked` — attention signal that input may be required.
-- `done` — the agent completed while unseen.
-- `idle` — the agent is waiting and the result is considered seen; an initially opened prompt is also idle.
-
-`idle` and `done` differ in attention state, not work-product validity. Long foreground tools can also produce misleading agent status. The root must reconcile the task packet, artifact, current repository state, and canonical evidence lock.
-
-## Session references and restore
-
-The current pilot is `fresh-only`. Do not resume, continue, or fork accepted work; start a fresh thread for every role and challenge.
-
-Current Herdr source restores Codex with plain `codex resume <id>`. Until a controlled experiment and full-envelope attestor prove how profile, `developer_instructions`, skill/feature enablement, sandbox, approvals, cwd, and worktree are resolved, automatic resume must remain disabled and restored output is not accepted as pilot evidence.
-
-Minimum resume experiment:
-
-1. Start a disposable read-only Codex thread with a harmless developer marker.
-2. Record thread ID, profile, effective config/instruction sources, cwd, revision, and permission behavior.
-3. Stop the process.
-4. Resume once with plain `codex resume <id>` and once with `codex --profile <name> resume <id>`.
-5. Compare effective authority and attempt only a disposable write probe.
-
-A matching conversation history does not prove matching authority.
-
-## Mechanism boundary
-
-No FirstMate component is installed or vendored. This pilot keeps only the local
-mechanisms it can explain and remove: worktree isolation, durable task metadata,
-event-driven attention with bounded polling fallback, creation provenance before
-teardown, and a single controller lock.
-
-Do not copy an agent distribution, second-level hierarchy, daemon, project-mode
-state machine, or approval policy. Add a mechanism only after its local invariant,
-write authority, evidence surface, and deletion path are explicit. The compact
-consumer audit pointer is [`docs/foundation/why-foundation-integrity.md`](../../../docs/foundation/why-foundation-integrity.md); full research
-remains local and is not activated by the pilot.
+Before closing, read the response, preserve decisive evidence and disagreement, and
+make the root decision. Close only pane/tab IDs present in this run's launch receipt.
+Revoke the validation capability after its final lease. Never stop the Herdr server
+from an active run.

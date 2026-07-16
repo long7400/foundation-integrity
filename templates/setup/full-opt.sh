@@ -369,19 +369,8 @@ case "$runtime" in
     ;;
 esac
 
-stage_orchestration_contract() {
-  selected_runtime=$1
-  destination=$2
-  mkdir -p "$stage/$(dirname -- "$destination")"
-  awk -F '\t' -v OFS='\t' -v selected_runtime="$selected_runtime" '
-    $1 == "setting" && $2 == "runtime" { $3 = selected_runtime }
-    $1 == "setting" && $2 == "role_model_matrix" { $3 = ".orchestration/foundation/role-model-matrix.tsv" }
-    { print }
-  ' "$source_root/templates/orchestration/run-contract.tsv" > "$stage/$destination"
-}
-
 for shared in README.md coworker-protocol.md model-role-policy.md pilot-run-receipt.md \
-  role-model-matrix.tsv weak-foundation-benchmark.md; do
+  task-packet.md weak-foundation-benchmark.md; do
   stage_file "$source_root/templates/orchestration/$shared" ".orchestration/foundation/$shared"
 done
 stage_tree "$source_root/templates/orchestration/scripts" .orchestration/foundation/scripts
@@ -391,14 +380,12 @@ case "$runtime" in
         .orchestration/foundation/runtime/codex.md
       stage_tree "$source_root/templates/orchestration/profiles/codex" \
         .orchestration/foundation/profiles/codex
-      stage_orchestration_contract codex .orchestration/foundation/run-contract.tsv
       ;;
     claude)
       stage_file "$source_root/templates/orchestration/runtime/claude.md" \
         .orchestration/foundation/runtime/claude.md
       stage_tree "$source_root/templates/orchestration/profiles/claude" \
         .orchestration/foundation/profiles/claude
-      stage_orchestration_contract claude .orchestration/foundation/run-contract.tsv
       ;;
     both)
       stage_file "$source_root/templates/orchestration/runtime/codex.md" \
@@ -409,8 +396,6 @@ case "$runtime" in
         .orchestration/foundation/profiles/codex
       stage_tree "$source_root/templates/orchestration/profiles/claude" \
         .orchestration/foundation/profiles/claude
-      stage_orchestration_contract codex .orchestration/foundation/run-contract.codex.tsv
-      stage_orchestration_contract claude .orchestration/foundation/run-contract.claude.tsv
       ;;
 esac
 
@@ -1295,7 +1280,7 @@ if [ "$runtime" = both ]; then
 fi
 printf '  Codex trust: project hooks remain skipped until reviewed/trusted with /hooks\n'
 printf '  orchestration: static policy at .orchestration/foundation; only %s runtime profiles selected\n' "$runtime"
-printf '  orchestration state: .foundation/orchestration remains ignored and is not created\n'
+printf '  orchestration state: live output stays in sessions or an explicit temporary directory\n'
 printf '  research payload: none copied; docs/research remains ignored working state\n'
 printf '  source-only merge template: the gitignore block is not duplicated\n'
 printf '  adoption lock: %s -> %s (source ref/revision, components, payload digest, managed hashes/modes)\n' \

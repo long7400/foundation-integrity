@@ -39,9 +39,10 @@ runtime wiring in `.codex/hooks.json` or `.claude/settings.json`.
 
 The pack also includes an **experimental, opt-in coworker pilot** authored in
 [`templates/orchestration/`](./templates/orchestration/). Adoption projects only the
-selected runtime profiles into `.orchestration/foundation/`; live locks, transcripts,
-and run artifacts stay under ignored `.foundation/orchestration/`. The pilot is not a
-skill and full-opt never activates it or installs FirstMate.
+selected runtime profiles and transparent root primitives into
+`.orchestration/foundation/`. Live output stays in the sessions or a root-selected
+temporary directory. The pilot is not a skill, never creates a task-state tree, and
+full-opt never activates it or installs FirstMate.
 
 Shared names such as **Balloon** and **Brake** are documented as optional mnemonics in
 [`docs/foundation/foundation-pattern-language.md`](./docs/foundation/foundation-pattern-language.md).
@@ -250,9 +251,9 @@ idempotent. It:
   installs
   `.codex/hooks.json` and/or `.claude/settings.json` for selected runtimes, and refuses
   to black-box merge an existing differing config;
-- places static coworker policy in `.orchestration/foundation/`, copying only the
-  selected runtime profile subtree while reserving `.foundation/orchestration/` for
-  ignored live state;
+- places static coworker policy and transparent root primitives in
+  `.orchestration/foundation/`, copying only the selected runtime profile subtree and
+  creating no live orchestration state;
 - writes `.foundation-integrity/adoption.tsv` with the distribution version, source
   ref/revision, payload digest, selected components, and content plus POSIX mode for
   every managed file/hook;
@@ -358,6 +359,23 @@ experiment, not an installed skill or default workflow. It requires one root con
 top-level sessions, explicit role/model envelopes, non-overlapping write scopes,
 root-owned validation locks, and digest-bound evidence. Workers receive the task
 contract, not transport topology. Runtime status is never acceptance evidence.
+The executable receipt-bound Herdr lifecycle and real smoke are presently the Codex
+pilot; the Claude material is an explicitly narrower static launch envelope.
+
+A release that claims the Codex envelope must run the binary-bound runtime tier; the
+portable repository contracts alone do not make that claim:
+
+```bash
+export FI_CODEX_BIN=/absolute/path/from-audited-install-record/codex
+export FI_CODEX_SHA256=<sha256-from-that-independent-record>
+sh tests/codex-orchestration-acceptance.sh
+```
+
+The tier fails closed on a missing or mismatched declared identity. It proves that the
+observed file bytes match the supplied digest; it does not authenticate that digest
+or a hostile local verifier toolchain. Use a trusted shell/Python/hash environment
+and an authenticated independent installation or release record, not a digest
+resolved from the current `PATH` inside the same acceptance command.
 
 Start with a bounded comparison against a single-agent baseline and keep the pilot
 only if it finds material counterevidence worth its coordination cost.

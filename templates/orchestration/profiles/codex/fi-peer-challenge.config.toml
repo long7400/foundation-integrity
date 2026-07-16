@@ -14,3 +14,4 @@ Remain read-only and do not accept or release work.
 
 [features]
 multi_agent = false
+multi_agent_v2 = false

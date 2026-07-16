@@ -1,5 +1,35 @@
 {
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/.codex/hooks/scripts/herdr-codex-session.py\"",
+            "timeout": 10,
+            "statusMessage": "Reporting session continuity"
+          },
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/.codex/hooks/scripts/herdr-pane-telemetry.py\"",
+            "timeout": 10,
+            "statusMessage": "Reporting pane telemetry"
+          }
+        ]
+      }
+    ],
+    "PostCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/.codex/hooks/scripts/herdr-pane-telemetry.py\"",
+            "timeout": 10,
+            "statusMessage": "Refreshing compact telemetry"
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "Bash|Edit|Write|apply_patch",
@@ -21,6 +51,12 @@
             "command": "FI_DELTA_ONLY=1 sh \"$(git rev-parse --show-toplevel)/.codex/hooks/scripts/fitness-check.sh\"",
             "timeout": 30,
             "statusMessage": "Checking architecture delta"
+          },
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/.codex/hooks/scripts/herdr-pane-telemetry.py\"",
+            "timeout": 10,
+            "statusMessage": "Refreshing pane telemetry"
           }
         ]
       }

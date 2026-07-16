@@ -1,55 +1,29 @@
-# Dual-runtime role and model policy
+# Role and model policy
 
-Status: **user-approved pilot policy; opt-in; copied but never activated by explicit full-opt setup**.
+Status: **opt-in pilot policy**.
 
-## Invariant
+There are three authority roles: `root`, `peer`, and `implementer`. Only the root
+controls external sessions, validation leases, acceptance, release, and teardown.
 
-One root owns coordination and final acceptance. There are only three authority
-roles: `root`, `peer` (read-only), and `implementer` (write-capable). Model choice
-selects a work class; it never promotes claim or workflow authority.
+Use the supplied runtime profiles as explicit launch envelopes:
 
-The checked mapping is [`role-model-matrix.tsv`](./role-model-matrix.tsv). Root
-chooses zero or more coworkers from independent dependency units, not from a fixed
-team chart.
+- `fi-root-lead` — sole controller; native subagents disabled;
+- `fi-peer-scout` — read-only mechanism discovery; no difficult final verdict;
+- `fi-peer-challenge` — read-only independent challenge and strongest alternative;
+- `fi-implementer-mechanical` — bounded, well-specified writer;
+- `fi-implementer-ambiguous` — high-coupling writer that audits assumptions first.
 
-## Work classes
+Model and effort choices live in those reviewed profile files, not in a second matrix.
+They select capability and cost; they never grant claim or workflow authority. A
+launch failure must not silently fall back to another profile.
 
-- **control** — root-only task graph, validation leases, synthesis, acceptance,
-  release, and teardown.
-- **scout** — bounded discovery, exact-file/mechanism inventory, reproduction setup,
-  and artifacts. It may point to a high-impact seam but does not settle a difficult
-  architecture, security, foundation, or durable-contract claim.
-- **challenge** — independent strongest-alternative, architecture, security,
-  foundation, or evidence review.
-- **mechanical** — well-specified bounded implementation inside an isolated worktree
-  or explicit write scope.
-- **ambiguous** — difficult or high-coupling implementation that must challenge
-  load-bearing assumptions before editing.
+Profiles are not security boundaries. Observe the effective model, effort,
+permissions, sandbox, cwd/worktree, and disabled native-control surface at runtime.
+Use a fresh session for clean-room review. Resume is continuity only until that full
+envelope can be attested.
 
-For Codex, the approved capability order is explicit:
-
-1. `gpt-5.6-sol` at `xhigh` is root.
-2. `gpt-5.6-sol` at `medium` handles `challenge` and `ambiguous` work.
-3. `gpt-5.6-luna` at `max` handles `scout` and `mechanical` work.
-
-Do not infer strength from the effort label alone. The matrix binds task class,
-model, effort, and access as one envelope; launch failure must not silently fall back
-to another row.
-
-## Shared launch properties
-
-Every runtime adapter preserves:
-
-- one root and disabled native subagent control;
-- project instruction discovery;
-- backend commands only in the root profile;
-- explicit model, effort, permission posture, cwd/worktree, work class, task scope,
-  artifact target, stop conditions, and acceptance contract;
-- fresh sessions until a full-envelope resume attestor exists; and
-- root-owned controller/validation locks when the run uses them.
-
-## Honest boundary
-
-The matrix and contract checkers validate declarations and bindings. They do not
-prove model availability, effective permissions, independence, reasoning quality, or
-correctness. Runtime observation and acceptance remain separate evidence.
+For the Codex pilot, a supported profile name is insufficient: root and coworker
+operations require exact pack-source bytes plus v2 install-manifest provenance, and
+their launch argv binds CLI overrides for the same-key envelope above project config.
+Project-owned instructions, rules, and hooks remain visible by design; profiles do
+not turn a trusted project into a security boundary.
