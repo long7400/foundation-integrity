@@ -129,7 +129,7 @@ source_ref="$ref"
 source_repository="$REPOSITORY"
 
 if [ -n "$source_root" ]; then
-  [ -f "$source_root/templates/setup/full-opt.sh" ] \
+  [ -f "$source_root/templates/setup/full-opt.sh" ] && [ -f "$source_root/VERSION" ] \
     || fail "FI_INSTALL_SOURCE_ROOT is not a Foundation Integrity source tree: $source_root"
   source_root=$(cd "$source_root" && pwd -P)
   source_revision="${FI_SOURCE_REVISION:-$(git -C "$source_root" rev-parse HEAD 2>/dev/null || printf local-unversioned)}"
@@ -177,7 +177,9 @@ else
     || fail "downloaded snapshot must contain exactly one repository root"
   IFS= read -r source_root < "$extracted_roots"
   [ -n "$source_root" ] && [ -f "$source_root/templates/setup/full-opt.sh" ] \
+    && [ -f "$source_root/VERSION" ] \
     && [ ! -L "$source_root/templates/setup/full-opt.sh" ] \
+    && [ ! -L "$source_root/VERSION" ] \
     || fail "downloaded snapshot does not contain the adopter"
   [ -z "$(find "$source_root" -type l -print -quit)" ] \
     || fail "downloaded snapshot contains symlinks and will not be adopted"

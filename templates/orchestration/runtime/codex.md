@@ -60,6 +60,41 @@ Remove matching files after no live session depends on them:
 sh .orchestration/foundation/scripts/manage-codex-profiles.sh remove
 ```
 
+### Optional GLM-5.2 auxiliaries
+
+The two lower-cost GLM profiles are a separate bounded compatibility tier. They do
+not replace or share ownership with the five primary envelopes above:
+
+- `fi-glm-peer-scout` — read-only mechanism inventory and evidence collection;
+- `fi-glm-implementer-mechanical` — well-specified mechanical work in an explicit
+  write scope.
+
+Both use `glm-5.2` at `max`, cap `model_context_window` at 272,000, and point Codex
+Responses traffic at a pinned loopback CLIProxyAPI gateway. The gateway translates
+to Z.AI Chat Completions while keeping the default Codex provider unchanged.
+
+```sh
+sh .orchestration/foundation/scripts/cliproxy-glm.sh setup
+sh .orchestration/foundation/scripts/cliproxy-glm.sh start
+eval "$(sh .orchestration/foundation/scripts/cliproxy-glm.sh print-env)"
+codex --profile fi-glm-peer-scout
+
+sh .orchestration/foundation/scripts/cliproxy-glm.sh doctor
+sh .orchestration/foundation/scripts/cliproxy-glm.sh remove
+```
+
+`setup` prompts without echo, verifies the pinned release checksum, refuses a
+differing destination profile, writes owner-only state, generates a separate local
+client key, and binds only to `127.0.0.1`. `remove` stops the process, removes only
+unchanged GLM profile copies, and deletes this gateway's credentials/state.
+
+These two profiles are intentionally outside the primary v2 profile attester and
+receipt-bound coworker launcher. If the root uses them as external coworkers, the
+complete session lifecycle must still go through Herdr—creation, launch, task send,
+bounded wait, output inspection, and teardown—and the root must record gateway health
+plus a credentialed inference/tool smoke. Do not substitute a native subagent or a
+manually spawned terminal agent.
+
 ## Root workflow
 
 From a plain shell in the intended Herdr root pane, pre-attest and `exec` the root.

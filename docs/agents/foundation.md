@@ -11,10 +11,11 @@ project references are `docs/foundation/foundation-audit.md`,
 `docs/foundation/foundation-pattern-language.md`, and
 `docs/foundation/why-foundation-integrity.md`.
 
-Project-specific receipts belong under `docs/foundation/receipts/`. Working research
-belongs under ignored `docs/research/`. ADRs under `docs/adr/` are personal working
-history by default; promote only the decision-lossless subset that the project truly
-needs to share.
+Project-specific receipts belong under ignored `docs/foundation/receipts/`; the
+directory keeps only `.gitkeep` in version control. Working research likewise belongs
+under ignored `docs/research/`. These are local evidence surfaces, not canonical
+project truth. Promote only the decision-lossless subset that the project truly needs
+to share into an explicitly tracked owner.
 
 The required vocabulary is:
 

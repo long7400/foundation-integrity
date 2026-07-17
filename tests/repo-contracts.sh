@@ -22,8 +22,10 @@ do
 done
 
 python3 - "$root" <<'PY'
+import hashlib
 import json
 import pathlib
+import re
 import sys
 
 root = pathlib.Path(sys.argv[1])
@@ -73,26 +75,119 @@ for skill_root in (canonical, claude, codex):
         if "/_third_party/" not in path.as_posix() and "arxiv.org" in body:
             raise SystemExit(f"first-party skill retains paper URL: {path}")
 
-claude_manifest = json.loads((root / ".claude-plugin/plugin.json").read_text())
-codex_manifest = json.loads((root / ".codex-plugin/plugin.json").read_text())
-if claude_manifest.get("name") != codex_manifest.get("name"):
-    raise SystemExit("plugin names drifted")
-if claude_manifest.get("version") != codex_manifest.get("version"):
-    raise SystemExit("plugin versions drifted")
-if codex_manifest.get("skills") != "./skills/":
-    raise SystemExit("Codex manifest does not expose canonical skills/")
+for retired in (root / ".claude-plugin", root / ".codex-plugin"):
+    if retired.exists():
+        raise SystemExit(f"retired plugin distribution surface remains: {retired}")
+
+version_file = root / "VERSION"
+version = version_file.read_text().strip() if version_file.is_file() else ""
+if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", version):
+    raise SystemExit("VERSION must contain one semantic version")
+
+profile_root = root / "templates/orchestration/profiles/codex"
+primary_profiles = {
+    "fi-root-lead.config.toml": "53bfac1d098197f2c82f08b546f6a4a6eaf0e3cde7d062ee727a12c97ed17577",
+    "fi-peer-scout.config.toml": "63f96d092eef61a65f49cc02cd31c822626f55b84d6ece3ada47e21c5a32bf55",
+    "fi-peer-challenge.config.toml": "3b40d340f3c62443fb66c47dccf60c423802996625e953221b7c20256cf071f9",
+    "fi-implementer-mechanical.config.toml": "f03efb6fa6810167dd82a97a0f8e03134fa9f6ed147ebdbebdfd88ed7060f79b",
+    "fi-implementer-ambiguous.config.toml": "ec4043d13ee0ca526d023d4cd7fd6924acc0fcbfd01571b94a79a56d9d9f9120",
+}
+glm_profiles = {
+    "fi-glm-peer-scout.config.toml": ("read-only", "never"),
+    "fi-glm-implementer-mechanical.config.toml": ("workspace-write", "on-request"),
+}
+actual_profiles = {p.name for p in profile_root.iterdir() if p.is_file()}
+if actual_profiles != set(primary_profiles) | set(glm_profiles):
+    raise SystemExit("Codex profile inventory must contain five primary and two GLM envelopes")
+for filename, expected_sha256 in primary_profiles.items():
+    actual_sha256 = hashlib.sha256((profile_root / filename).read_bytes()).hexdigest()
+    if actual_sha256 != expected_sha256:
+        raise SystemExit(f"primary Codex profile changed without policy review: {filename}")
+for filename, (sandbox, approval) in glm_profiles.items():
+    path = profile_root / filename
+    raw = path.read_text()
+    expected_lines = {
+        'model = "glm-5.2"',
+        'model_provider = "fi-cliproxy-glm"',
+        'model_reasoning_effort = "max"',
+        'model_context_window = 272000',
+        f'sandbox_mode = "{sandbox}"',
+        f'approval_policy = "{approval}"',
+        'developer_instructions = """',
+        '[model_providers.fi-cliproxy-glm]',
+        'name = "GLM-5.2 via local CLIProxyAPI"',
+        'base_url = "http://127.0.0.1:8317/v1"',
+        'env_key = "FI_CLIPROXY_KEY"',
+        'env_key_instructions = "Run cliproxy-glm.sh print-env; never commit this key."',
+        'wire_api = "responses"',
+        'requires_openai_auth = false',
+        '[features]',
+        'multi_agent = false',
+        'multi_agent_v2 = false',
+    }
+    raw_lines = raw.splitlines()
+    warning_lines = [
+        "# Optional auxiliary profile. Run templates/orchestration/scripts/cliproxy-glm.sh setup first.",
+    ]
+    if raw_lines[:1] != warning_lines:
+        raise SystemExit(f"GLM profile must begin with the setup pointer: {path}")
+    lines = set(raw_lines)
+    missing = expected_lines - lines
+    if missing:
+        raise SystemExit(f"GLM profile misses required envelope {sorted(missing)!r}: {path}")
+    for required in expected_lines:
+        if raw_lines.count(required) != 1:
+            raise SystemExit(f"GLM profile duplicates required configuration {required!r}: {path}")
+    in_instructions = False
+    for line in raw_lines:
+        if in_instructions:
+            if line == '"""':
+                in_instructions = False
+            continue
+        if line == 'developer_instructions = """':
+            in_instructions = True
+            continue
+        if line and line not in expected_lines and line not in warning_lines:
+            raise SystemExit(f"GLM profile contains an unexpected configuration line {line!r}: {path}")
+    if in_instructions:
+        raise SystemExit(f"GLM profile has an unterminated developer_instructions block: {path}")
+    if re.search(r"(?mi)^(api[_-]?key|token|bearer_token|authorization|experimental_bearer_token|http_headers)\s*=", raw):
+        raise SystemExit(f"GLM profile contains a forbidden inline credential surface: {path}")
+
+gateway = root / "templates/orchestration/scripts/cliproxy-glm.sh"
+if not gateway.is_file() or not (gateway.stat().st_mode & 0o111):
+    raise SystemExit("GLM gateway lifecycle script is missing or not executable")
+gateway_body = gateway.read_text()
+for required in (
+    'VERSION="7.2.80"',
+    'host: "127.0.0.1"',
+    'disable-control-panel: true',
+    'plugins:',
+    'base-url: "https://api.z.ai/api/coding/paas/v4"',
+    'alias: "glm-5.2"',
+    'setup|start|stop|restart|status|doctor|print-env|remove',
+):
+    if required not in gateway_body:
+        raise SystemExit(f"GLM gateway lifecycle misses {required!r}")
 
 ignore = (root / "templates/gitignore/foundation-integrity.gitignore").read_text().splitlines()
 required_ignores = {
     ".foundation/", ".orchestration/", ".codex/", ".agents/",
-    "docs/research/", "tmp/", "docs/adr/*.md", "!docs/adr/0000-template.md",
+    "docs/research/", "docs/foundation/receipts/*",
+    "!docs/foundation/receipts/.gitkeep", "tmp/", "docs/adr/*.md",
+    "!docs/adr/0000-template.md",
 }
 if not required_ignores.issubset(set(ignore)):
     raise SystemExit("consumer ignore block is incomplete")
 
 agents_template = root / "templates/setup/AGENTS.md"
-if not agents_template.is_file() or len(agents_template.read_bytes()) > 4000:
+if not agents_template.is_file() or len(agents_template.read_bytes()) > 5800:
     raise SystemExit("generic AGENTS.md is missing or exceeds its compact budget")
+for agents_path in (root / "AGENTS.md", agents_template):
+    agents_body = agents_path.read_text()
+    for required in ("Herdr-only coworker spawning", "Use Herdr", "native subagent"):
+        if required not in agents_body:
+            raise SystemExit(f"Herdr-only spawning rule misses {required!r}: {agents_path}")
 
 foundation_convention = (root / "docs/agents/foundation.md").read_text()
 if "When `AGENTS.md` is absent, installation creates a short consumer-neutral" not in foundation_convention:
@@ -143,13 +238,51 @@ for path in (
 ):
     if ".foundation-integrity/hooks/" in path.read_text():
         raise SystemExit(f"distribution documentation retains legacy hook path: {path}")
+
+for path in (root / "README.md", root / "docs/install/codex.md", root / "docs/install/claude.md"):
+    body = path.read_text().lower()
+    if re.search(r"\bplugins?\b|\.claude-plugin|\.codex-plugin", body):
+        raise SystemExit(f"shell-only documentation retains a retired distribution claim: {path}")
+
+retired_install_command = re.compile(
+    r"(?i)(?:/plugin\s|codex\s+plugin\s|plugin\s+(?:marketplace|install|add)|"
+    r"cp\s+-R\s+\.(?:agents|claude)/skills)"
+)
+for path in root.rglob("*.md"):
+    relative = path.relative_to(root).as_posix()
+    if relative.startswith(("docs/research/", "docs/adr/", "docs/foundation/receipts/", "third_party/", ".foundation/")):
+        continue
+    if retired_install_command.search(path.read_text()):
+        raise SystemExit(f"active documentation restores a retired distribution command: {path}")
 PY
+
+if command -v codex >/dev/null 2>&1; then
+  profile_home=$(mktemp -d "${TMPDIR:-/tmp}/foundation-integrity-profiles.XXXXXX")
+  cp "$root"/templates/orchestration/profiles/codex/*.config.toml "$profile_home/"
+  for profile_marker in \
+    "fi-glm-peer-scout|Your launch role is peer with work class scout" \
+    "fi-glm-implementer-mechanical|Your launch role is implementer with work class mechanical"
+  do
+    profile=${profile_marker%%|*}
+    marker=${profile_marker#*|}
+    if ! ZAI_API_KEY=profile-parse-only CODEX_HOME="$profile_home" \
+      codex --profile "$profile" debug prompt-input profile-discovery-probe \
+      2>/dev/null | grep -Fq "$marker"; then
+      rm -rf "$profile_home"
+      fail "Codex could not parse the active GLM profile $profile"
+    fi
+  done
+  rm -rf "$profile_home"
+fi
 
 (cd "$root" && shasum -a 256 -c third_party/mattpocock-skills/promoted-files.sha256 \
   >/dev/null) || fail "vendored companion snapshot hash drift"
 
 sh "$root/tests/orchestration-contracts.sh" \
   || fail "orchestration contracts failed"
+
+sh "$root/tests/cliproxy-glm-contracts.sh" \
+  >/dev/null || fail "GLM gateway lifecycle contracts failed"
 
 sh "$root/tests/install-contracts.sh" || fail "install contracts failed"
 

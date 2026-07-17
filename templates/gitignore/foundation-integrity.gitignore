@@ -4,6 +4,8 @@
 .codex/
 .agents/
 docs/research/
+docs/foundation/receipts/*
+!docs/foundation/receipts/.gitkeep
 tmp/
 docs/adr/*.md
 !docs/adr/0000-template.md

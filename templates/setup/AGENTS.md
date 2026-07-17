@@ -1,33 +1,87 @@
-# Foundation Integrity project guide
+# Personal Operating Rules
 
-This project has adopted the Foundation Integrity gate. The gate protects
-ownership, source of truth, lifecycle, trust boundaries, and the simplest valid
-system shape before a locally-correct change hardens the wrong foundation.
+This project uses Foundation Integrity to stop locally correct work from hardening
+the wrong owner, source of truth, lifecycle, trust boundary, dependency direction,
+or system shape.
 
-## Before non-trivial work
+## Priority and claim preservation
 
-- Read the installed `foundation-audit` skill and try to falsify the load-bearing
-  claims before design or implementation.
-- Record exactly one classification, one outcome, and one route. Unknown
-  load-bearing facts are research blockers, not assumptions.
-- Acceptance must prove the architectural property at risk, not only feature
-  behavior.
-- When a foundation surface changes, obtain an independent
-  `adversarial-foundation-review` before durable work is accepted.
+- Follow instruction hierarchy and scope; an explicit user command outranks skills,
+  playbooks, defaults, and doctrine.
+- Preserve every requested outcome, mechanism, tool, model, workflow, and property.
+  An adjacent mechanism is not fulfillment; if the required one is unavailable,
+  state the exact blocker and offer (without implementing) a reduced alternative.
+- If parallel agents are required, use the Herdr-only rule below and launch
+  independent units concurrently up to capacity; report capacity/overlap blockers.
+- Preserve a reviewed base-instruction override while its recorded upstream issue or
+  removal condition remains unresolved; remove it only after a verified fix or owner
+  acceptance.
+
+## Foundation gate
+
+- Before non-trivial feature, mechanism, migration, refactor, security, reliability,
+  or performance work, read `foundation-audit/SKILL.md` and try to falsify ownership,
+  source of truth, lifecycle, trust boundaries, dependency direction, invariants,
+  intended/observed behavior, and the simpler established archetype. Skip only work
+  that is clearly mechanical/local and say why.
+- Record exactly one classification (`FOUNDATION_OK`, `FOUNDATION_SUSPECT`, or
+  `FOUNDATION_BLOCKED`), one outcome (`PROCEED`, `RESEARCH_ONLY`, or `NO_GO`), and
+  one route (Foundation-first, Bounded compatibility, or Feature-first). Only
+  `PROCEED` permits dependent implementation; unknown load-bearing facts block.
+- Contain active harm first. Stop before creating a second authority, bypassing an
+  owner/trust boundary, repeating exceptions, or freezing a known mismatch into a
+  durable contract.
+- Acceptance must exercise the architectural property at risk. After a foundation
+  surface or mismatch changes, obtain a fresh independent adversarial review; the
+  implementer cannot approve its own durable work.
+
+## Workstream authority and handoffs
+
+- Use this section only when multiple workers are explicitly requested and the
+  required delegation mechanism exists; ordinary single-session work stays single.
+- Each worker owns its workstream. Mutation scope limits writes, not evidence it may
+  inspect, challenge, or recommend. User claims and hard invariants bind it; root
+  diagnoses and provisional ordering remain hypotheses unless binding.
+- Root owns task state, validation leases, acceptance, release, teardown, and final
+  authority. Workers cannot self-approve durable work.
+- Reports are concise but decision-lossless: preserve outcome, decisive evidence and
+  counterevidence, validation, uncertainty, deviations, unlocked dependencies,
+  absorption, and downstream implications. Never request hidden chain-of-thought.
+- Keep canonical instructions, decisions, criteria, and exact evidence as text.
+
+### Herdr-only coworker spawning
+
+- Any request for external coworkers, parallel agents, or “spawn agent” requires
+  `HERDR_ENV=1` and Herdr. If absent, report the blocker. Never substitute a manual
+  terminal command, native subagent, or background agent.
+- Use Herdr for creation, task delivery, bounded waits, output inspection, and
+  teardown. Never mix native subagents/background agents with Herdr coworkers.
+- If Herdr is unavailable, report the exact blocker and do not substitute another
+  mechanism without explicit user acceptance.
+
+## Task graph and reconciliation
+
+- Plan with a dependency-and-absorption graph, not a priority queue. Order by user
+  sequence/containment, dependency unlocks, foundation leverage, durable shape,
+  absorption/supersession, risk, reversibility, and evidence.
+- A lower-labelled foundation may precede a higher dependent task only with recorded
+  evidence of the unlock and durable benefit.
+- Reconcile after each wave (about three or four tasks) and whenever evidence changes
+  dependencies or acceptance. For ambiguous high-impact ordering, ask one
+  independent reviewer for the strongest alternative; root decides explicitly.
+- If one change fully covers another's criteria, mark the latter absorbed/superseded.
+  Close external work only when its workflow authorizes that state change.
+- Run independent units in parallel, dependent units sequentially, and overlapping
+  writes sequentially or with explicit ownership. Avoid ceremony for trivial work.
 
 ## Installed ownership
 
-- The project's existing `AGENTS.md` or `CLAUDE.md` remains authoritative. This
-  file is created only when `AGENTS.md` is absent; any existing instruction file is
-  left byte-for-byte untouched, and later edits belong to the project owner.
-- Selected runtime projections live under `.agents/skills/` (Codex) and/or
-  `.claude/skills/` (Claude).
-- Runtime hook scripts live under `.codex/hooks/scripts/` for Codex and
-  `.claude/hooks/scripts/` for Claude. Git hooks resolve the selected runtime
-  scripts and remain runtime-neutral.
-- Optional orchestration policy is inert under `.orchestration/foundation/`.
-  Runtime state belongs under `.foundation/` and is never a decision authority.
-
-Keep durable decisions and accepted evidence in an explicitly tracked project
-owner such as `docs/adr/` or `docs/foundation/receipts/`; do not treat ignored
-runtime state or transport status as acceptance evidence.
+- Create this file only when `AGENTS.md` is absent; existing `AGENTS.md` and
+  `CLAUDE.md` remain project-owned and byte-for-byte untouched.
+- Runtime projections live under `.agents/skills/` and/or `.claude/skills/`; hooks
+  under the matching runtime path. Optional orchestration is inert under
+  `.orchestration/foundation/`; ignored runtime state and transport status are never
+  task authority or acceptance evidence.
+- Keep local review receipts under ignored `docs/foundation/receipts/`. Promote only
+  accepted decision-lossless evidence that must be shared into an explicitly tracked
+  project owner.

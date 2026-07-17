@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 # Regenerate the standalone Claude and Codex project-skill projections from the
-# canonical plugin source. This is a maintainer build step, not a consumer setup
+# canonical distribution source. This is a maintainer build step, not a consumer setup
 # workflow.
 set -eu
 
