@@ -57,27 +57,23 @@ Use $foundation-health to review cumulative structural drift.
 The Codex projection includes optional `agents/openai.yaml` presentation metadata.
 Do not replace it with the Claude projection.
 
-## User profiles
+## Project-scoped envelopes
 
-Adoption copies profile templates into the inert project policy; it does not install
-them into `$HOME/.codex/`. Review them first, then use the primary profile manager:
-
-```bash
-sh .orchestration/foundation/scripts/manage-codex-profiles.sh status
-sh .orchestration/foundation/scripts/manage-codex-profiles.sh install
-```
-
-The manager exclusively creates and provenance-binds the five primary envelopes. It
-does not claim or overwrite the two separately owned GLM profile paths.
+Adoption copies all reviewed profile envelopes into the project under
+`.orchestration/foundation/profiles/codex/`. No profile manager writes to
+`$HOME/.codex/`, `~/.config`, or any other user-level runtime directory. The launcher
+attests the project envelope and passes its values as explicit CLI overrides. Codex
+never loads that envelope as a writable named profile, so runtime trust/model/hook
+persistence cannot replace the launch-authority object.
 
 The five primary role envelopes retain the current Codex provider. Two GLM-5.2
-auxiliary profiles are active through a user-local CLIProxyAPI v7.2.80 gateway;
+auxiliary profiles are active through a project-local CLIProxyAPI v7.2.80 gateway;
 they cap context at 272,000 tokens and use only the loopback client key
 `FI_CLIPROXY_KEY`.
 
 The gateway is the single translation seam: Codex speaks Responses to loopback and
-CLIProxyAPI speaks Chat Completions to Z.AI. It was locally exercised for text,
-function calling, tool-result continuation, and SSE streaming.
+CLIProxyAPI speaks Chat Completions to Z.AI. Its binary, config, client key, state,
+and profile-hash manifest live under the project's ignored `.foundation/` directory.
 
 From the installed project, run:
 
@@ -85,20 +81,15 @@ From the installed project, run:
 sh .orchestration/foundation/scripts/cliproxy-glm.sh setup
 sh .orchestration/foundation/scripts/cliproxy-glm.sh start
 eval "$(sh .orchestration/foundation/scripts/cliproxy-glm.sh print-env)"
-codex --profile fi-glm-peer-scout
-# or codex --profile fi-glm-implementer-mechanical
+python3 .orchestration/foundation/scripts/attest-codex-profile.py fi-glm-peer-scout
+# The Herdr launcher consumes this project envelope and starts Codex with CLI overrides.
 ```
 
-`setup` asks for the Z.AI key without echoing it, verifies the pinned release,
-installs only the two GLM profiles into `$CODEX_HOME` (without overwriting a
-difference), creates owner-only gateway state, and binds the seam to `127.0.0.1`.
-Use `doctor`, `stop`, `restart`, `status`, and `remove` for lifecycle. The upstream
-key is never written to a Codex profile or repository; the default provider remains
-untouched.
-
-If a previous direct-integration test left a differing GLM profile in `$CODEX_HOME`,
-remove that old test copy after stopping dependent sessions; setup refuses conflicting
-profile content by design.
+`setup` asks for the Z.AI key without echoing it, verifies the pinned release, binds
+the two existing project profile files by hash, creates owner-only state under
+`.foundation/cliproxy-glm/`, and binds the seam to `127.0.0.1`. Use `doctor`, `stop`,
+`restart`, `status`, and `remove` for lifecycle. The upstream key is never written to
+a profile or tracked repository file; the default provider remains untouched.
 
 Z.AI endpoint references:
 
@@ -120,10 +111,10 @@ history out of commits. Only `docs/foundation/receipts/.gitkeep` is tracked. The
 non-ignored adoption ledger binds the ignored installed payload to its reviewed source.
 
 For removal, verify the ledger and delete only unchanged recorded paths/hooks, then
-remove the marked ignore block and ledger. User profiles copied to `$HOME/.codex/`
-have a separate lifecycle and must be removed explicitly after live sessions stop:
-use `manage-codex-profiles.sh remove` for the primary five and
-`cliproxy-glm.sh remove` for the two GLM auxiliaries plus gateway state.
+remove the marked ignore block and ledger. Runtime state under `.foundation/` follows
+the project lifecycle. This pack does not create or remove user-level Codex profiles.
+Legacy global files from older versions must be reconciled explicitly after dependent
+sessions stop.
 
 Codex skill and profile documentation:
 

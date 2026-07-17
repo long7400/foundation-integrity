@@ -30,8 +30,7 @@ multi_agent = true
 multi_agent_v2 = true
 TOML
 
-CODEX_HOME="$home" sh "$root/templates/orchestration/scripts/manage-codex-profiles.sh" install
-CODEX_HOME="$home" python3 "$root/templates/orchestration/scripts/attest-codex-profile.py" \
+python3 "$root/templates/orchestration/scripts/attest-codex-profile.py" \
   fi-peer-challenge > "$tmp/attestation.json"
 
 CODEX_HOME="$home" CODEX_BIN="$codex_bin" PROJECT="$project" \
@@ -138,9 +137,7 @@ def app_server_config(args):
             process.terminate()
             process.wait(timeout=5)
 
-baseline = prompt_texts([
-    codex, "--profile", "fi-peer-challenge", "debug", "prompt-input", "probe",
-])
+baseline = prompt_texts([codex, "debug", "prompt-input", "probe"])
 if "HOSTILE_PROJECT_INSTRUCTIONS" not in baseline:
     raise SystemExit("effective config smoke: hostile trusted project config was not loaded")
 
@@ -154,12 +151,9 @@ if "`sandbox_mode` is `read-only`" not in permissions or "Approval policy is cur
     raise SystemExit("effective config smoke: sandbox/approval CLI envelope was not effective")
 
 config_args = profile["cli_args"]
-if config_args[:2] != ["--profile", profile["profile"]]:
-    raise SystemExit("effective config smoke: canonical CLI args omitted the named profile")
-# app-server exposes config/read but intentionally rejects --profile. The profile is
-# lower precedence than both the hostile project layer and these same CLI overrides,
-# so omit only that unsupported selector while observing the load-bearing overrides.
-override_args = config_args[2:]
+if "--profile" in config_args:
+    raise SystemExit("effective config smoke: canonical CLI args still use a named profile")
+override_args = config_args
 observed_config = app_server_config([codex, *override_args])
 if observed_config.get("model_reasoning_effort") != profile["effort"]:
     raise SystemExit("effective config smoke: config/read observed the wrong reasoning effort")

@@ -7,9 +7,9 @@ sessions. It is not a skill, native subagent setup, or FirstMate installation.
 
 - Herdr owns PTYs, panes, input, bounded reads/waits, attention status, and optional
   display metadata.
-- Codex profiles own the reviewed model/effort, sandbox, approval, role instruction,
-  and both native-delegation feature disables for a process launched with that
-  profile.
+- Project-owned envelope files own the reviewed model/effort, sandbox, approval,
+  provider, role instruction, and both native-delegation feature disables. The
+  launcher passes them as explicit CLI overrides; named Codex profiles are not used.
 - Project `AGENTS.md` remains the durable instruction owner.
 - The root owns the task graph, validation lease, acceptance, release, and teardown.
 
@@ -17,48 +17,27 @@ Herdr owns lifecycle status. The dedicated SessionStart hook may report the real
 session ID for continuity, while the display hook uses only `pane.report_metadata`.
 Neither hook reports acceptance or takes over `report-agent` state authority.
 
-## Profiles
+## Project envelopes
 
-Review and explicitly install the five envelopes before enabling the Codex pilot:
-
-```sh
-sh .orchestration/foundation/scripts/manage-codex-profiles.sh status
-sh .orchestration/foundation/scripts/manage-codex-profiles.sh install
-```
-
-This affects only future `codex --profile fi-*` launches. It does not modify Herdr,
-ordinary Codex sessions, the base instruction file, or an already-running thread.
-Do not install a transport-control skill for coworkers. Only `fi-root-lead` contains
-controller behavior; non-root profiles contain no Herdr commands or topology.
-
-The manager creates every destination exclusively instead of claiming or overwriting
-a path checked earlier, then writes an owner-only
-`foundation-integrity-profiles.json` manifest in Codex home. Removal atomically moves
-that manifest and the owned profiles into a private
-quarantine, verifies hashes there, and only then deletes them; a raced replacement at
-the public path is never removed. An identical user-created file without provenance
-is never deleted, and drift requires explicit manual reconciliation.
+Review the adopted files under `.orchestration/foundation/profiles/codex/`. The
+shared attester verifies the project file, adoption ledger, and role card, then
+derives the complete CLI envelope. No setup command writes profiles or manifests to
+Codex home. Do not install a transport-control skill for coworkers. Only
+`fi-root-lead` contains controller behavior; non-root profiles contain no Herdr
+commands or topology.
 
 One shared attester is used by root authorization, launch, submit, and wait. It
-requires the installed object's device/inode/hash to match the v2 owner manifest and
-its bytes to match the reviewed profile shipped beside the scripts. A hand-written
-or drifted file with a supported name is not launch authority. Because trusted
-project config has higher precedence than a named profile, the attester also derives
-canonical CLI overrides for model, effort, sandbox, approval, both known
-native-delegation feature flags, and role instructions. Root and coworker launch
-receipts bind the observed launch argv, not every mutable runtime setting.
+requires the project envelope's device/inode/hash to remain stable and its bytes to
+match the adoption ledger or tracked source tree. A hand-written or drifted file is
+not launch authority. The attester derives canonical CLI overrides for model,
+effort, sandbox, approval, provider, both known native-delegation feature flags, and
+role instructions. Receipts bind the observed argv and full project provenance.
 
 Project `AGENTS.md`, model instruction sources, rules, and reviewed hooks remain
 model-visible by design. The role developer instruction has higher authority than
 those project instructions, but it is not semantic isolation from the project. The
 pilot protects against same-key configuration replacement and accidental personnel
 control; it is not a sandbox against a malicious trusted repository.
-
-Remove matching files after no live session depends on them:
-
-```sh
-sh .orchestration/foundation/scripts/manage-codex-profiles.sh remove
-```
 
 ### Optional GLM-5.2 auxiliaries
 
@@ -77,20 +56,20 @@ to Z.AI Chat Completions while keeping the default Codex provider unchanged.
 sh .orchestration/foundation/scripts/cliproxy-glm.sh setup
 sh .orchestration/foundation/scripts/cliproxy-glm.sh start
 eval "$(sh .orchestration/foundation/scripts/cliproxy-glm.sh print-env)"
-codex --profile fi-glm-peer-scout
+python3 .orchestration/foundation/scripts/attest-codex-profile.py fi-glm-peer-scout
 
 sh .orchestration/foundation/scripts/cliproxy-glm.sh doctor
 sh .orchestration/foundation/scripts/cliproxy-glm.sh remove
 ```
 
-`setup` prompts without echo, verifies the pinned release checksum, refuses a
-differing destination profile, writes owner-only state, generates a separate local
-client key, and binds only to `127.0.0.1`. `remove` stops the process, removes only
-unchanged GLM profile copies, and deletes this gateway's credentials/state.
+`setup` prompts without echo, verifies the pinned release checksum, binds the
+project-local profile files by hash, writes owner-only state under
+`.foundation/cliproxy-glm/`, generates a separate local client key, and binds only to
+`127.0.0.1`. `remove` stops the process and deletes only this project's gateway
+credentials/state; it never touches Codex home.
 
-These two profiles remain outside the primary five-profile ownership manifest, but
-the shared attester and receipt-bound coworker launcher understand their separate GLM
-ownership manifest. Launch additionally requires `FI_CLIPROXY_KEY` and a successful
+These two profiles are project-local and are bound by the project gateway manifest.
+Launch additionally requires `FI_CLIPROXY_KEY` and a successful
 gateway doctor check. Their complete session lifecycle still goes through Herdr—
 creation, launch, task send, bounded wait, output inspection, and teardown—and the
 root records gateway health plus a credentialed inference/tool smoke. Do not
@@ -246,9 +225,9 @@ exit "$status"
 ```
 
 Authorization requires the live Codex pane to carry the operational root designation
-`fi-root-lead`, run `codex --profile fi-root-lead` from the current worktree, and match
-the immutable facts recorded immediately before `exec`: pane IDs, PID/start, cwd,
-argv, and canonical v2 profile provenance with both delegation flags disabled. The capability is
+`fi-root-lead`, run the exact CLI envelope derived from the current project, and
+match the immutable facts recorded immediately before `exec`: pane IDs, PID/start,
+cwd, argv, and project profile provenance with both delegation flags disabled. The capability is
 then bound to that receipt, session-if-observed, and caller ancestry. Git repository-
 selection variables are ignored and authority creation is exclusive, so linked
 worktrees contend on one Git-common-dir authority and lease. This prevents accidental

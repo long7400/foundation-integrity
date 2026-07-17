@@ -16,27 +16,28 @@ script_dir=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
 verify_process() {
   if [ -n "$expected_role" ]; then
     profile_attestation=$(python3 "$script_dir/attest-codex-profile.py" \
-      "$expected_profile" "$expected_codex_home" --role "$expected_role") || exit 1
+      "$expected_profile" --role "$expected_role") || exit 1
   else
     profile_attestation=$(python3 "$script_dir/attest-codex-profile.py" \
-      "$expected_profile" "$expected_codex_home") || exit 1
+      "$expected_profile") || exit 1
   fi
   process_info=$(herdr pane process-info --pane "$expected_pane") || exit 1
   FI_RECEIPT=$receipt FI_PROCESS_INFO=$process_info \
     FI_PROFILE_ATTESTATION=$profile_attestation python3 - <<'PY'
-import json, os, pathlib, subprocess
-receipt = json.loads(pathlib.Path(os.environ["FI_RECEIPT"]).read_text(encoding="utf-8"))
+import json, os, pathlib, stat, subprocess
+receipt_path = pathlib.Path(os.environ["FI_RECEIPT"])
+before = os.lstat(receipt_path)
+receipt_bytes = receipt_path.read_bytes()
+after = os.lstat(receipt_path)
+if not stat.S_ISREG(before.st_mode) or (
+    before.st_dev != after.st_dev or before.st_ino != after.st_ino
+):
+    raise SystemExit("wait coworker: launch receipt changed while being read")
+receipt = json.loads(receipt_bytes)
 process = json.loads(os.environ["FI_PROCESS_INFO"])["result"]["process_info"]
 profile = json.loads(os.environ["FI_PROFILE_ATTESTATION"])
-for receipt_key, profile_key in (
-    ("profile", "profile"), ("profile_sha256", "sha256"),
-    ("profile_device", "device"), ("profile_inode", "inode"),
-    ("profile_path", "path"), ("codex_home", "codex_home"),
-    ("profile_tier", "profile_tier"), ("task_role", "role"),
-    ("role_sha256", "role_sha256"), ("role_path", "role_path"),
-):
-    if receipt.get(receipt_key) != profile.get(profile_key):
-        raise SystemExit("wait coworker: profile provenance differs from launch receipt")
+if receipt.get("profile_attestation") != profile:
+    raise SystemExit("wait coworker: profile provenance differs from launch receipt")
 digest = __import__("hashlib").sha256(profile["developer_instructions"].encode("utf-8")).hexdigest()
 if receipt.get("developer_instructions_sha256") != digest:
     raise SystemExit("wait coworker: effective developer instructions differ from launch receipt")
@@ -64,7 +65,7 @@ if value.get("schema") != "foundation-integrity-codex-launch:v2":
     raise SystemExit("wait coworker: invalid launch receipt schema")
 keys = (
     "workspace_id", "tab_id", "pane_id", "terminal_id", "name",
-    "agent_session_id", "profile", "codex_home", "task_role",
+    "agent_session_id", "profile", "task_role",
 )
 print("\t".join("" if value.get(key) is None else str(value.get(key)) for key in keys))
 PY
@@ -83,7 +84,6 @@ expected_session=${rest%%	*}
 rest=${rest#*	}
 expected_profile=${rest%%	*}
 rest=${rest#*	}
-expected_codex_home=${rest%%	*}
 expected_role=${rest#*	}
 
 # Reject a stale/reused pane before entering the attention loop. Recheck again at

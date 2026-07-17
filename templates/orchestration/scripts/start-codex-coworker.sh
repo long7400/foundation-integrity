@@ -12,9 +12,7 @@ name=${1:-}
 profile=${2:-}
 cwd=${3:-$PWD}
 timeout_ms=${FI_START_TIMEOUT_MS:-30000}
-codex_home=${CODEX_HOME:-${HOME:?}/.codex}
 codex_bin=${CODEX_BIN:-codex}
-profile_path=$codex_home/$profile.config.toml
 
 if [ -z "$name" ] || [ -z "$profile" ]; then
   echo "usage: $0 [--role task-role] <unique-name> <fi-peer-*|fi-implementer-*|fi-glm-*> [cwd]" >&2
@@ -27,10 +25,6 @@ esac
 case "$timeout_ms" in ''|*[!0-9]*) echo "start coworker: invalid timeout" >&2; exit 2 ;; esac
 [ "${HERDR_ENV:-}" = 1 ] || { echo "start coworker: HERDR_ENV=1 is required" >&2; exit 2; }
 [ -d "$cwd" ] || { echo "start coworker: cwd does not exist: $cwd" >&2; exit 2; }
-[ -f "$profile_path" ] && [ ! -L "$profile_path" ] || {
-  echo "start coworker: profile is missing or symlinked: $profile_path" >&2
-  exit 2
-}
 command -v herdr >/dev/null 2>&1 || { echo "start coworker: herdr not found" >&2; exit 2; }
 command -v "$codex_bin" >/dev/null 2>&1 || { echo "start coworker: Codex executable not found" >&2; exit 2; }
 script_dir=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
@@ -40,9 +34,9 @@ FI_VALIDATION_TOKEN=${FI_VALIDATION_TOKEN:-} \
 
 profile_attester=$script_dir/attest-codex-profile.py
 if [ -n "$role" ]; then
-  profile_attestation=$(python3 "$profile_attester" "$profile" "$codex_home" --role "$role") || exit 2
+  profile_attestation=$(python3 "$profile_attester" "$profile" --role "$role") || exit 2
 else
-  profile_attestation=$(python3 "$profile_attester" "$profile" "$codex_home") || exit 2
+  profile_attestation=$(python3 "$profile_attester" "$profile") || exit 2
 fi
 case "$profile" in
   fi-glm-*)
@@ -55,7 +49,7 @@ esac
 profile_values=$(printf '%s\n' "$profile_attestation" | python3 -c '
 import json, sys
 value = json.load(sys.stdin)
-keys = ("model", "effort", "sandbox", "approval", "sha256", "device", "inode", "path", "codex_home", "profile_tier", "role", "role_sha256", "role_path")
+keys = ("model", "effort", "sandbox", "approval", "sha256", "device", "inode", "path", "profile_tier", "role", "role_sha256", "role_path")
 print("\t".join("" if value.get(key) is None else str(value.get(key)) for key in keys))
 ') || exit 2
 model=${profile_values%%	*}
@@ -73,8 +67,6 @@ rest=${rest#*	}
 profile_inode=${rest%%	*}
 rest=${rest#*	}
 profile_path=${rest%%	*}
-rest=${rest#*	}
-codex_home=${rest%%	*}
 rest=${rest#*	}
 profile_tier=${rest%%	*}
 rest=${rest#*	}
@@ -162,12 +154,12 @@ fi
 agent_info=$(herdr agent get "$pane_id")
 process_info=$(herdr pane process-info --pane "$pane_id")
 if [ -n "$role" ]; then
-  final_profile_attestation=$(python3 "$profile_attester" "$profile" "$codex_home" --role "$role") || {
+    final_profile_attestation=$(python3 "$profile_attester" "$profile" --role "$role") || {
     herdr tab close "$tab_id" >/dev/null 2>&1 || true
     exit 1
   }
 else
-  final_profile_attestation=$(python3 "$profile_attester" "$profile" "$codex_home") || {
+    final_profile_attestation=$(python3 "$profile_attester" "$profile") || {
     herdr tab close "$tab_id" >/dev/null 2>&1 || true
     exit 1
   }
@@ -181,7 +173,7 @@ fi
 if ! receipt=$(FI_PROCESS_INFO=$process_info FI_AGENT_INFO=$agent_info \
 FI_NAME=$name FI_PROFILE=$profile FI_PROFILE_PATH=$profile_path \
 FI_PROFILE_SHA=$profile_sha FI_PROFILE_DEVICE=$profile_device \
-FI_PROFILE_INODE=$profile_inode FI_CODEX_HOME=$codex_home FI_CWD=$cwd \
+FI_PROFILE_INODE=$profile_inode FI_CWD=$cwd \
 FI_PROFILE_ATTESTATION=$profile_attestation \
 FI_MODEL=$model FI_EFFORT=$effort FI_SANDBOX=$sandbox FI_APPROVAL=$approval \
 FI_PROFILE_TIER=$profile_tier FI_TASK_ROLE=$attested_role \
@@ -237,7 +229,7 @@ receipt = {
     "profile_inode": int(os.environ["FI_PROFILE_INODE"]),
     "profile_path": os.environ["FI_PROFILE_PATH"],
     "profile_tier": os.environ["FI_PROFILE_TIER"],
-    "codex_home": os.environ["FI_CODEX_HOME"],
+    "profile_attestation": profile_attestation,
     "model": os.environ["FI_MODEL"],
     "effort": os.environ["FI_EFFORT"],
     "sandbox": os.environ["FI_SANDBOX"],
