@@ -43,19 +43,17 @@ PY
 profile_binding=$(python3 - "$receipt" <<'PY'
 import json, pathlib, sys
 value = json.loads(pathlib.Path(sys.argv[1]).read_text(encoding="utf-8"))
-print(f'{value.get("profile", "")}\t{value.get("codex_home", "")}\t{value.get("task_role") or ""}')
+print(f'{value.get("profile", "")}\t{value.get("task_role") or ""}')
 PY
 ) || exit 2
 expected_profile=${profile_binding%%	*}
-rest=${profile_binding#*	}
-expected_codex_home=${rest%%	*}
-expected_role=${rest#*	}
+expected_role=${profile_binding#*	}
 if [ -n "$expected_role" ]; then
   profile_attestation=$(python3 "$script_dir/attest-codex-profile.py" \
-    "$expected_profile" "$expected_codex_home" --role "$expected_role") || exit 1
+    "$expected_profile" --role "$expected_role") || exit 1
 else
   profile_attestation=$(python3 "$script_dir/attest-codex-profile.py" \
-    "$expected_profile" "$expected_codex_home") || exit 1
+    "$expected_profile") || exit 1
 fi
 info=$(herdr agent get "$pane_id")
 process_info=$(herdr pane process-info --pane "$pane_id")
@@ -64,20 +62,19 @@ FI_PROFILE_ATTESTATION=$profile_attestation FI_COLLECTED_OUTPUT=$collected_outpu
 python3 - <<'PY'
 import hashlib, json, os, pathlib, stat, subprocess
 receipt_path = pathlib.Path(os.environ["FI_RECEIPT"])
+before = os.lstat(receipt_path)
 receipt_bytes = receipt_path.read_bytes()
+after = os.lstat(receipt_path)
+if not stat.S_ISREG(before.st_mode) or (
+    before.st_dev != after.st_dev or before.st_ino != after.st_ino
+):
+    raise SystemExit("submit coworker: launch receipt changed while being read")
 receipt = json.loads(receipt_bytes)
 agent = json.loads(os.environ["FI_AGENT_INFO"])["result"]["agent"]
 process = json.loads(os.environ["FI_PROCESS_INFO"])["result"]["process_info"]
 profile = json.loads(os.environ["FI_PROFILE_ATTESTATION"])
-for receipt_key, profile_key in (
-    ("profile", "profile"), ("profile_sha256", "sha256"),
-    ("profile_device", "device"), ("profile_inode", "inode"),
-    ("profile_path", "path"), ("codex_home", "codex_home"),
-    ("profile_tier", "profile_tier"), ("task_role", "role"),
-    ("role_sha256", "role_sha256"), ("role_path", "role_path"),
-):
-    if receipt.get(receipt_key) != profile.get(profile_key):
-        raise SystemExit("submit coworker: profile provenance differs from launch receipt")
+if receipt.get("profile_attestation") != profile:
+    raise SystemExit("submit coworker: profile provenance differs from launch receipt")
 digest = __import__("hashlib").sha256(profile["developer_instructions"].encode("utf-8")).hexdigest()
 if receipt.get("developer_instructions_sha256") != digest:
     raise SystemExit("submit coworker: effective developer instructions differ from launch receipt")

@@ -188,26 +188,13 @@ def attest_member(receipt: dict[str, Any], receipt_bytes: bytes, script_dir: pat
                 "python3",
                 str(script_dir / "attest-codex-profile.py"),
                 str(receipt.get("profile", "")),
-                str(receipt.get("codex_home", "")),
                 "--role",
                 role,
             ]
         ).stdout
     )
-    for receipt_key, profile_key in (
-        ("profile", "profile"),
-        ("profile_sha256", "sha256"),
-        ("profile_device", "device"),
-        ("profile_inode", "inode"),
-        ("profile_path", "path"),
-        ("codex_home", "codex_home"),
-        ("profile_tier", "profile_tier"),
-        ("task_role", "role"),
-        ("role_sha256", "role_sha256"),
-        ("role_path", "role_path"),
-    ):
-        if receipt.get(receipt_key) != attestation.get(profile_key):
-            fail("coworker profile provenance differs from launch receipt")
+    if receipt.get("profile_attestation") != attestation:
+        fail("coworker profile provenance differs from launch receipt")
     instructions = attestation.get("developer_instructions")
     if not isinstance(instructions, str) or receipt.get("developer_instructions_sha256") != sha256_bytes(instructions.encode()):
         fail("coworker effective developer instructions differ from launch receipt")

@@ -2,6 +2,8 @@
 set -eu
 
 root=$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)
+tmp=$(mktemp -d "${TMPDIR:-/tmp}/fi-repo-contracts.XXXXXX")
+trap 'rm -rf "$tmp"' EXIT HUP INT TERM
 
 fail() {
   printf 'FAIL: %s\n' "$*" >&2
@@ -256,23 +258,45 @@ for path in root.rglob("*.md"):
         raise SystemExit(f"active documentation restores a retired distribution command: {path}")
 PY
 
-if command -v codex >/dev/null 2>&1; then
-  profile_home=$(mktemp -d "${TMPDIR:-/tmp}/foundation-integrity-profiles.XXXXXX")
-  cp "$root"/templates/orchestration/profiles/codex/*.config.toml "$profile_home/"
-  for profile_marker in \
-    "fi-glm-peer-scout|Your launch authority is read-only peer with work class scout" \
-    "fi-glm-implementer-mechanical|Your launch authority is implementer with work class mechanical"
-  do
-    profile=${profile_marker%%|*}
-    marker=${profile_marker#*|}
-    if ! ZAI_API_KEY=profile-parse-only CODEX_HOME="$profile_home" \
-      codex --profile "$profile" debug prompt-input profile-discovery-probe \
-      2>/dev/null | grep -Fq "$marker"; then
-      rm -rf "$profile_home"
-      fail "Codex could not parse the active GLM profile $profile"
-    fi
-  done
-  rm -rf "$profile_home"
+profile_scope=$tmp/profile-scope-contract
+mkdir -p "$profile_scope"
+git -C "$profile_scope" init -q
+FI_SOURCE_REPOSITORY=contract FI_SOURCE_REF=contract FI_SOURCE_REVISION=contract \
+  sh "$root/templates/setup/full-opt.sh" --runtime codex "$profile_scope" >/dev/null
+for profile in fi-root-lead fi-peer-challenge; do
+  (cd "$profile_scope" && python3 \
+    "$profile_scope/.orchestration/foundation/scripts/attest-codex-profile.py" \
+    "$profile" >/dev/null) \
+    || fail "project-local profile attestation failed: $profile"
+done
+
+# A runtime may atomically replace a file while preserving bytes and mode.  The
+# project envelope must carry object identity so launch/submit/wait receipts
+# reject that replacement instead of silently accepting a new inode.
+inode_profile=$profile_scope/.orchestration/foundation/profiles/codex/fi-peer-challenge.config.toml
+before=$tmp/profile-before.json
+after=$tmp/profile-after.json
+(cd "$profile_scope" && python3 \
+  "$profile_scope/.orchestration/foundation/scripts/attest-codex-profile.py" \
+  fi-peer-challenge > "$before") || fail "initial project envelope attestation failed"
+cp "$inode_profile" "$inode_profile.replacement"
+mv "$inode_profile.replacement" "$inode_profile"
+(cd "$profile_scope" && python3 \
+  "$profile_scope/.orchestration/foundation/scripts/attest-codex-profile.py" \
+  fi-peer-challenge > "$after") || fail "replacement project envelope attestation failed unexpectedly"
+python3 - "$before" "$after" <<'PY' || fail "project envelope lost inode identity or gained --profile launch"
+import json, pathlib, sys
+before = json.loads(pathlib.Path(sys.argv[1]).read_text())
+after = json.loads(pathlib.Path(sys.argv[2]).read_text())
+assert before["sha256"] == after["sha256"]
+assert before["device"] == after["device"]
+assert before["inode"] != after["inode"]
+assert before != after
+assert "--profile" not in before["cli_args"]
+assert "--profile" not in after["cli_args"]
+PY
+if [ -e "$root/templates/orchestration/scripts/manage-codex-profiles.sh" ]; then
+  fail "global profile manager remains in the distribution"
 fi
 
 (cd "$root" && shasum -a 256 -c third_party/mattpocock-skills/promoted-files.sha256 \

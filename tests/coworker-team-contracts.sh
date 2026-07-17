@@ -10,15 +10,12 @@ fail() {
   exit 1
 }
 
-codex_home=$tmp/codex-home
 fake_bin=$tmp/bin
 team_dir=$tmp/team
-mkdir -p "$codex_home" "$fake_bin" "$team_dir/artifacts"
+mkdir -p "$fake_bin" "$team_dir/artifacts"
 chmod 700 "$team_dir" "$team_dir/artifacts"
-CODEX_HOME="$codex_home" sh \
-  "$root/templates/orchestration/scripts/manage-codex-profiles.sh" install >/dev/null
 
-tech_attestation=$(CODEX_HOME="$codex_home" python3 \
+tech_attestation=$(python3 \
   "$root/templates/orchestration/scripts/attest-codex-profile.py" \
   fi-peer-challenge --role tech-lead) || fail "Tech Lead attestation failed"
 printf '%s\n' "$tech_attestation" | python3 -c '
@@ -31,7 +28,7 @@ assert "Common task-role contract:" in value["developer_instructions"]
 assert "Your task role is Tech Lead" in value["developer_instructions"]
 assert "Your task role is Business Analyst" not in value["developer_instructions"]
 ' || fail "Tech Lead role envelope is not selective Sol high"
-if CODEX_HOME="$codex_home" python3 \
+if python3 \
   "$root/templates/orchestration/scripts/attest-codex-profile.py" \
   fi-implementer-mechanical --role tech-lead >/dev/null 2>&1; then
   fail "incompatible Tech Lead profile was accepted"
@@ -39,12 +36,11 @@ fi
 
 stable_pid=$$
 started_at=$(ps -o lstart= -p "$stable_pid" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
-FI_ROOT=$root FI_HOME=$codex_home FI_TEAM=$team_dir FI_PID=$stable_pid \
+FI_ROOT=$root FI_TEAM=$team_dir FI_PID=$stable_pid \
 FI_STARTED=$started_at python3 - <<'PY'
 import hashlib, json, os, pathlib
 
 root = pathlib.Path(os.environ["FI_ROOT"])
-home = pathlib.Path(os.environ["FI_HOME"])
 team = pathlib.Path(os.environ["FI_TEAM"])
 pid = int(os.environ["FI_PID"])
 started = os.environ["FI_STARTED"]
@@ -52,7 +48,7 @@ attester = root / "templates/orchestration/scripts/attest-codex-profile.py"
 
 def attest(profile, role=None):
     import subprocess
-    args = ["python3", str(attester), profile, str(home)]
+    args = ["python3", str(attester), profile]
     if role:
         args += ["--role", role]
     return json.loads(subprocess.check_output(args, text=True))
@@ -73,7 +69,7 @@ def coworker(filename, name, pane, tab, terminal, profile_name, role):
         "name": name, "profile": profile_name,
         "profile_sha256": profile["sha256"], "profile_device": profile["device"],
         "profile_inode": profile["inode"], "profile_path": profile["path"],
-        "profile_tier": profile["profile_tier"], "codex_home": profile["codex_home"],
+        "profile_tier": profile["profile_tier"], "profile_attestation": profile,
         "model": profile["model"], "effort": profile["effort"],
         "sandbox": profile["sandbox"], "approval": profile["approval"],
         "task_role": role, "role_sha256": profile["role_sha256"],
@@ -214,7 +210,7 @@ SH
 chmod +x "$fake_bin/herdr"
 
 team_env() {
-  env PATH="$fake_bin:$PATH" CODEX_HOME="$codex_home" FAKE_LOG="$fake_log" \
+  env PATH="$fake_bin:$PATH" FAKE_LOG="$fake_log" \
     FAKE_ROOT_CALLS="$root_calls" FAKE_LEAD_CALLS="$lead_calls" \
     FAKE_LEAD_SUBMITTED="$lead_submitted" FAKE_ROOT_WAKE="$root_wake" \
     FAKE_TEAM_DIR="$team_dir" "$@"

@@ -52,7 +52,6 @@ require_controller_pane() {
   FI_AGENT_INFO=$agent_info FI_PROCESS_INFO=$process_info FI_WORKTREE_ROOT=$worktree_root \
     FI_EXPECTED_PANE=$expected_pane FI_CONTROLLER_NAME=$controller_name \
     FI_PROFILE_ATTESTER=$script_dir/attest-codex-profile.py \
-    FI_CODEX_HOME=${CODEX_HOME:-${HOME:?}/.codex} \
     FI_ROOT_LAUNCH_RECEIPT=${FI_ROOT_LAUNCH_RECEIPT:-} python3 - <<'PY'
 import hashlib, json, os, pathlib, stat, subprocess
 agent = json.loads(os.environ["FI_AGENT_INFO"])["result"]["agent"]
@@ -92,7 +91,6 @@ if runtime == "codex":
     result = subprocess.run(
         [
             "python3", os.environ["FI_PROFILE_ATTESTER"], "fi-root-lead",
-            os.environ["FI_CODEX_HOME"],
         ],
         check=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
     )

@@ -1,16 +1,16 @@
 #!/bin/sh
 # Manage the pinned Responses-to-Chat-Completions gateway used by the optional
-# GLM-5.2 Codex profiles. The gateway is deliberately user-local and loopback-only.
+# GLM-5.2 Codex profiles. The gateway is project-local and loopback-only.
 set -eu
 
 VERSION="7.2.80"
 RELEASE_BASE="https://github.com/router-for-me/CLIProxyAPI/releases/download/v${VERSION}"
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
 PROFILE_SOURCE="$SCRIPT_DIR/../profiles/codex"
-CODEX_HOME_DIR="${CODEX_HOME:-$HOME/.codex}"
-ROOT="${XDG_CONFIG_HOME:-$HOME/.config}/foundation-integrity/cliproxy-glm"
-STATE="${XDG_STATE_HOME:-$HOME/.local/state}/foundation-integrity/cliproxy-glm"
-DATA="${XDG_DATA_HOME:-$HOME/.local/share}/foundation-integrity/cliproxy-glm"
+PROJECT_ROOT=$(CDPATH= cd -- "$SCRIPT_DIR/../../.." && pwd -P)
+ROOT="$PROJECT_ROOT/.foundation/cliproxy-glm"
+STATE="$ROOT/state"
+DATA="$ROOT/data"
 CONFIG="$ROOT/config.yaml"
 CLIENT_KEY_FILE="$ROOT/client-key"
 PROFILE_MANIFEST="$ROOT/installed-profiles.tsv"
@@ -139,33 +139,24 @@ validate_manifest() {
 }
 
 check_profile_conflicts() {
-  reject_symlink_ancestors "$CODEX_HOME_DIR"
+  reject_symlink_ancestors "$PROJECT_ROOT/.foundation"
   validate_manifest
   for name in $profile_names; do
     source_file="$PROFILE_SOURCE/$name.config.toml"
-    target_file="$CODEX_HOME_DIR/$name.config.toml"
     [ -f "$source_file" ] || die "missing profile source: $source_file"
-    reject_symlink "$target_file"
-    if [ -e "$target_file" ] && ! cmp -s "$source_file" "$target_file"; then
-      recorded=""
-      [ -f "$PROFILE_MANIFEST" ] && recorded=$(awk -F '\t' -v n="$name" '$1 == n { print $2; exit }' "$PROFILE_MANIFEST")
-      current=$(sha256 "$target_file")
-      [ -n "$recorded" ] && [ "$current" = "$recorded" ] \
-        || die "refusing to overwrite differing Codex profile: $target_file"
-    fi
+    reject_symlink "$source_file"
   done
 }
 
 install_profiles() {
-  if [ ! -d "$CODEX_HOME_DIR" ]; then mkdir -p "$CODEX_HOME_DIR"; chmod 700 "$CODEX_HOME_DIR"; fi
+  mkdir -p "$ROOT"; chmod 700 "$ROOT"
   manifest_tmp="$PROFILE_MANIFEST.tmp"
   printf '%s\n' '# foundation-integrity-profile-manifest:v1' >"$manifest_tmp"; chmod 600 "$manifest_tmp"
   for name in $profile_names; do
-    install -m 600 "$PROFILE_SOURCE/$name.config.toml" "$CODEX_HOME_DIR/$name.config.toml"
-    printf '%s\t%s\n' "$name" "$(sha256 "$CODEX_HOME_DIR/$name.config.toml")" >>"$manifest_tmp"
+    printf '%s\t%s\n' "$name" "$(sha256 "$PROFILE_SOURCE/$name.config.toml")" >>"$manifest_tmp"
   done
   mv "$manifest_tmp" "$PROFILE_MANIFEST"
-  say "Installed GLM profiles in $CODEX_HOME_DIR"
+  say "Bound project GLM profiles in $PROFILE_SOURCE"
 }
 
 setup() {
@@ -338,22 +329,12 @@ print_env() {
 
 remove() {
   validate_manifest
-  stop || true
-  for name in $profile_names; do
-    source_file="$PROFILE_SOURCE/$name.config.toml"
-    target_file="$CODEX_HOME_DIR/$name.config.toml"
-    recorded=""
-    [ -f "$PROFILE_MANIFEST" ] && recorded=$(awk -F '\t' -v n="$name" '$1 == n { print $2; exit }' "$PROFILE_MANIFEST")
-    current=""
-    [ -f "$target_file" ] && [ ! -L "$target_file" ] && current=$(sha256 "$target_file")
-    if [ -n "$recorded" ] && [ "$current" = "$recorded" ]; then
-      rm -f "$target_file"
-    elif [ -e "$target_file" ]; then
-      say "preserved modified profile: $target_file"
-    fi
-  done
-  rm -rf "$ROOT" "$STATE" "$DATA"
-  say "removed gateway files and credentials; no repository or default Codex provider files were changed"
+  # Never erase the PID/config/credential evidence while a managed process may
+  # still be alive.  A failed stop is a containment failure, not a reason to
+  # orphan the gateway and delete the only ownership record.
+  stop
+  rm -rf "$ROOT"
+  say "removed project gateway files and credentials; no user-level Codex files were changed"
 }
 
 command=${1:-}

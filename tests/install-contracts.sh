@@ -222,7 +222,6 @@ diff -qr "$root/templates/orchestration/profiles/codex" \
   || fail "Codex projection omitted the GLM gateway lifecycle"
 [ -x "$codex/.orchestration/foundation/scripts/start-codex-coworker.sh" ] \
   && [ -x "$codex/.orchestration/foundation/scripts/launch-codex-root.sh" ] \
-  && [ -x "$codex/.orchestration/foundation/scripts/manage-codex-profiles.sh" ] \
   && [ -x "$codex/.orchestration/foundation/scripts/attest-codex-profile.py" ] \
   && [ -x "$codex/.orchestration/foundation/scripts/start-coworker-team.sh" ] \
   && [ -x "$codex/.orchestration/foundation/scripts/wait-coworker-team.py" ] \

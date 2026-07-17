@@ -70,22 +70,18 @@ case "$1:$2" in
     printf '%s\n' '{"id":"fake","result":{"pane":{"workspace_id":"w1","tab_id":"w1:t1","pane_id":"w1:p1","terminal_id":"term_1"}}}'
     ;;
   pane:run)
-    if [ "${FAKE_REPLACE_PROFILE:-0}" = 1 ]; then
-      cp "$FAKE_PROFILE_PATH" "$FAKE_PROFILE_PATH.replacement"
-      mv "$FAKE_PROFILE_PATH.replacement" "$FAKE_PROFILE_PATH"
-    fi
     ;;
   pane:process-info)
     pane=${4:-w1:p9}
     if [ "$pane" = w1:p1 ]; then
       if [ "${FAKE_ROOT_PROFILE:-fi-root-lead}" = fi-root-lead ]; then
-        argv=${FAKE_ROOT_ARGV_JSON:-'["codex","--profile","fi-root-lead"]'}
+        argv=${FAKE_ROOT_ARGV_JSON:-'["codex","--model","gpt-5.6-sol"]'}
       else
-        argv=$(printf '["codex","--profile","%s"]' "$FAKE_ROOT_PROFILE")
+        argv='["codex","--model","gpt-5.6-sol"]'
       fi
       process_cwd=${FAKE_ROOT_PROCESS_CWD:-$FAKE_PROCESS_CWD}
     else
-      argv=${FAKE_COWORKER_ARGV_JSON:-'["codex","--profile","fi-peer-challenge"]'}
+      argv=${FAKE_COWORKER_ARGV_JSON:-'["codex","--model","gpt-5.6-sol"]'}
       [ "${FAKE_BAD_ARGV:-0}" = 0 ] || argv='["codex"]'
       process_cwd=$FAKE_PROCESS_CWD
     fi
@@ -118,10 +114,6 @@ cat > "$fake_bin/codex" <<'SH'
 exit 0
 SH
 chmod +x "$fake_bin/herdr" "$fake_bin/codex"
-profile_manager=$root/templates/orchestration/scripts/manage-codex-profiles.sh
-CODEX_HOME="$codex_home" sh "$profile_manager" install \
-  || fail "canonical launch profile install failed"
-
 lease=$root/templates/orchestration/scripts/validation-lease.sh
 stable_pid=$$
 control_repo=$tmp/control-repo
@@ -133,12 +125,9 @@ printf '%s\n' 'developer_instructions = "contradict the root role"' \
   > "$control_repo/.codex/config.toml"
 root_started_at=$(ps -o lstart= -p "$stable_pid" \
   | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
-root_profile_attestation=$(CODEX_HOME="$codex_home" \
-  python3 "$root/templates/orchestration/scripts/attest-codex-profile.py" fi-root-lead)
-peer_profile_attestation=$(CODEX_HOME="$codex_home" \
-  python3 "$root/templates/orchestration/scripts/attest-codex-profile.py" fi-peer-challenge)
-tech_profile_attestation=$(CODEX_HOME="$codex_home" \
-  python3 "$root/templates/orchestration/scripts/attest-codex-profile.py" \
+root_profile_attestation=$(python3 "$root/templates/orchestration/scripts/attest-codex-profile.py" fi-root-lead)
+peer_profile_attestation=$(python3 "$root/templates/orchestration/scripts/attest-codex-profile.py" fi-peer-challenge)
+tech_profile_attestation=$(python3 "$root/templates/orchestration/scripts/attest-codex-profile.py" \
   fi-peer-challenge --role tech-lead)
 root_argv_json=$(printf '%s\n' "$root_profile_attestation" | python3 -c \
   'import json,sys; value=json.load(sys.stdin); print(json.dumps(["codex", *value["cli_args"]], separators=(",", ":")))')
@@ -228,6 +217,7 @@ common_env() {
 bootstrap_receipt=$tmp/bootstrap-root.launch.json
 (cd "$control_repo" && env PATH="$fake_bin:$PATH" HERDR_ENV=1 \
   HERDR_WORKSPACE_ID=w1 HERDR_TAB_ID=w1:t1 HERDR_PANE_ID=w1:p1 \
+  FAKE_ROOT_ARGV_JSON="$root_argv_json" \
   FAKE_LOG="$fake_log" FAKE_STATUS_FILE="$fake_status" FAKE_ENTER_FILE="$fake_enters" \
   FAKE_PROCESS_CWD="$root" CODEX_HOME="$codex_home" CODEX_BIN="$fake_bin/codex" \
   sh "$root/templates/orchestration/scripts/launch-codex-root.sh" \
@@ -265,7 +255,7 @@ assert value["multi_agent"] is False
 assert value["multi_agent_v2"] is False
 assert value["sandbox"] == "read-only"
 assert len(value["profile_sha256"]) == 64
-assert value["process_argv"][0:3] == ["codex", "--profile", "fi-peer-challenge"]
+assert value["process_argv"][0:3] == ["codex", "--model", "gpt-5.6-sol"]
 assert "features.multi_agent=false" in value["process_argv"]
 assert "features.multi_agent_v2=false" in value["process_argv"]
 assert value["agent_session_id"] == "session-9"
@@ -309,63 +299,15 @@ if common_env env FAKE_AGENT_NAME=bad-team-lead \
   fail "launcher accepted an incompatible Tech Lead profile"
 fi
 
-empty_home=$tmp/empty-home
-mkdir "$empty_home"
-touch "$empty_home/fi-peer-challenge.config.toml"
-if PATH="$fake_bin:$PATH" HERDR_ENV=1 CODEX_HOME="$empty_home" \
-  FAKE_LOG="$fake_log" FAKE_STATUS_FILE="$fake_status" FAKE_ENTER_FILE="$fake_enters" \
-  FAKE_PROCESS_CWD="$root" \
-  sh "$root/templates/orchestration/scripts/start-codex-coworker.sh" \
-  peer-empty fi-peer-challenge "$root" >/dev/null 2>&1; then
-  fail "start primitive accepted an empty profile envelope"
-fi
-unowned_home=$tmp/unowned-home
-mkdir "$unowned_home"
-cp "$root/templates/orchestration/profiles/codex/fi-peer-challenge.config.toml" "$unowned_home/"
-if common_env env CODEX_HOME="$unowned_home" sh \
-  "$root/templates/orchestration/scripts/start-codex-coworker.sh" \
-  peer-unowned fi-peer-challenge "$root" >/dev/null 2>&1; then
-  fail "start primitive accepted an unowned supported-name profile"
-fi
 if common_env env FAKE_BAD_ARGV=1 FAKE_AGENT_NAME=peer-bad \
   sh "$root/templates/orchestration/scripts/start-codex-coworker.sh" \
   peer-bad fi-peer-challenge "$root" >/dev/null 2>&1; then
   fail "start primitive accepted a mismatched foreground argv"
 fi
-race_home=$tmp/race-home
-mkdir "$race_home"
-CODEX_HOME="$race_home" sh "$profile_manager" install \
-  || fail "profile race fixture install failed"
-if common_env env CODEX_HOME="$race_home" FAKE_REPLACE_PROFILE=1 \
-  FAKE_PROFILE_PATH="$race_home/fi-peer-challenge.config.toml" sh \
-  "$root/templates/orchestration/scripts/start-codex-coworker.sh" \
-  peer-profile-race fi-peer-challenge "$root" >/dev/null 2>&1; then
-  fail "start primitive accepted a profile replaced during launch"
-fi
 if common_env sh "$root/templates/orchestration/scripts/start-codex-coworker.sh" \
   root-2 fi-root-lead "$root" >/dev/null 2>&1; then
   fail "coworker start accepted a second root profile"
 fi
-
-drift_receipt=$tmp/profile-drift.launch.json
-common_env env FAKE_AGENT_NAME=peer-profile-drift sh \
-  "$root/templates/orchestration/scripts/start-codex-coworker.sh" \
-  peer-profile-drift fi-peer-challenge "$root" > "$drift_receipt" \
-  || fail "profile drift fixture launch failed"
-printf '# post-launch drift\n' >> "$codex_home/fi-peer-challenge.config.toml"
-printf 'idle\n' > "$fake_status"
-if printf 'should be rejected\n' | common_env sh \
-  "$root/templates/orchestration/scripts/submit-coworker-turn.sh" \
-  "$drift_receipt" >/dev/null 2>&1; then
-  fail "submit accepted profile provenance drift after launch"
-fi
-printf 'done\n' > "$fake_status"
-if common_env sh "$root/templates/orchestration/scripts/wait-coworker-turn.sh" \
-  "$drift_receipt" 10 20 >/dev/null 2>&1; then
-  fail "wait accepted profile provenance drift after launch"
-fi
-cp "$root/templates/orchestration/profiles/codex/fi-peer-challenge.config.toml" \
-  "$codex_home/fi-peer-challenge.config.toml"
 
 : > "$fake_log"
 printf 'idle\n' > "$fake_status"
@@ -422,60 +364,6 @@ blocked_status=$?
 set -e
 [ "$blocked_status" -eq 3 ] || fail "wait primitive did not surface blocked distinctly"
 common_env sh "$lease" revoke || fail "launch-test validation authority revoke failed"
-
-profile_home=$tmp/profile-home
-mkdir "$profile_home"
-cp "$root/templates/orchestration/profiles/codex/fi-peer-scout.config.toml" \
-  "$profile_home/fi-peer-scout.config.toml"
-if CODEX_HOME="$profile_home" sh "$profile_manager" remove >/dev/null 2>&1; then
-  fail "profile manager removed an identical file without ownership provenance"
-fi
-rm -f "$profile_home/fi-peer-scout.config.toml"
-CODEX_HOME="$profile_home" sh "$profile_manager" install \
-  || fail "profile manager install failed"
-[ -f "$profile_home/foundation-integrity-profiles.json" ] \
-  || fail "profile manager did not record ownership"
-python3 - "$profile_home/foundation-integrity-profiles.json" <<'PY' \
-  || fail "profile manager omitted object provenance"
-import json, pathlib, sys
-value = json.loads(pathlib.Path(sys.argv[1]).read_text())
-assert value["schema"] == "foundation-integrity-codex-profiles:v2"
-for record in value["files"].values():
-    assert set(record) == {"device", "inode", "sha256"}
-PY
-if CODEX_HOME="$profile_home" sh "$profile_manager" install >/dev/null 2>&1; then
-  fail "profile manager overwrote pre-existing profiles"
-fi
-printf '# drift\n' >> "$profile_home/fi-peer-scout.config.toml"
-if CODEX_HOME="$profile_home" sh "$profile_manager" remove >/dev/null 2>&1; then
-  fail "profile manager removed a drifted profile"
-fi
-[ -f "$profile_home/foundation-integrity-profiles.json" ] \
-  && [ -f "$profile_home/fi-peer-scout.config.toml" ] \
-  || fail "failed profile removal did not restore owned paths"
-if find "$profile_home" -maxdepth 1 -name '.foundation-integrity-profile-removal-*' \
-  -print -quit | grep -q .; then
-  fail "failed profile removal left an unnecessary quarantine"
-fi
-cp "$root/templates/orchestration/profiles/codex/fi-peer-scout.config.toml" \
-  "$profile_home/fi-peer-scout.config.toml"
-CODEX_HOME="$profile_home" sh "$profile_manager" remove \
-  || fail "profile manager could not remove matching profiles"
-
-replacement_home=$tmp/replacement-home
-mkdir "$replacement_home"
-CODEX_HOME="$replacement_home" sh "$profile_manager" install \
-  || fail "replacement provenance fixture install failed"
-cp "$replacement_home/fi-peer-scout.config.toml" \
-  "$replacement_home/fi-peer-scout.config.toml.replacement"
-mv "$replacement_home/fi-peer-scout.config.toml.replacement" \
-  "$replacement_home/fi-peer-scout.config.toml"
-if CODEX_HOME="$replacement_home" sh "$profile_manager" remove >/dev/null 2>&1; then
-  fail "profile manager deleted an identical replacement with different provenance"
-fi
-[ -f "$replacement_home/foundation-integrity-profiles.json" ] \
-  && [ -f "$replacement_home/fi-peer-scout.config.toml" ] \
-  || fail "identical replacement rejection did not restore public paths"
 
 repo=$tmp/repo
 git init -q "$repo"

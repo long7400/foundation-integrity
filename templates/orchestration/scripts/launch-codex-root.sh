@@ -4,7 +4,6 @@ set -eu
 
 receipt=${1:-}
 cwd=${2:-$PWD}
-codex_home=${CODEX_HOME:-${HOME:?}/.codex}
 codex_bin=${CODEX_BIN:-codex}
 if [ -z "$receipt" ]; then
   echo "usage: $0 <new-root-launch-receipt.json> [repo-root]" >&2
@@ -42,7 +41,7 @@ terminal_id=${rest#*	}
   && [ "$tab_id" = "$HERDR_TAB_ID" ] && [ "$pane_id" = "$HERDR_PANE_ID" ] \
   || { echo "root launch: live pane differs from inherited Herdr identity" >&2; exit 1; }
 profile_attestation=$(python3 "$script_dir/attest-codex-profile.py" \
-  fi-root-lead "$codex_home") || exit 2
+  fi-root-lead) || exit 2
 started_at=$(ps -o lstart= -p "$$" \
   | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
 [ -n "$started_at" ] || { echo "root launch: process start identity unavailable" >&2; exit 1; }
@@ -82,7 +81,7 @@ PY
 trap 'unlink "$receipt" >/dev/null 2>&1 || true' EXIT HUP INT TERM
 
 final_attestation=$(python3 "$script_dir/attest-codex-profile.py" \
-  fi-root-lead "$codex_home") || exit 1
+  fi-root-lead) || exit 1
 [ "$final_attestation" = "$profile_attestation" ] \
   || { echo "root launch: profile provenance changed before exec" >&2; exit 1; }
 herdr pane rename "$HERDR_PANE_ID" fi-root-lead >/dev/null
