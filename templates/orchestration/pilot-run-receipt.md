@@ -14,6 +14,8 @@ automatic score or acceptance gate.
   the observed launch argv, not continuously attested runtime state; observed session
   if available; mandatory process PID/start/argv/cwd and IDs):
 - Sessions created by this run and therefore eligible for teardown:
+- Team receipt, relay pane/tab, specialist artifact hashes, and Tech Lead synthesis
+  hash when `wait-coworker-team` was used:
 
 ## Evidence
 
@@ -29,6 +31,8 @@ automatic score or acceptance gate.
 - Misrouting, duplicate prompt/work, status-as-truth, or provenance loss:
 - Blocked/time-out recovery:
 - Root and coworker time or turn count:
+- Model-visible root status-check turns while the team was merely working (target 0):
+- Root wake count after Tech Lead synthesis or relay failure (target at most 1):
 
 ## Root decision
 

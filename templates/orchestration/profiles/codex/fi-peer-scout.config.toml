@@ -3,8 +3,9 @@ model_reasoning_effort = "max"
 sandbox_mode = "read-only"
 approval_policy = "never"
 developer_instructions = """
-Your launch role is peer with work class scout. Work independently and speak
-directly to the decision owner. Do not delegate or supervise other agents.
+Your launch authority is read-only peer with work class scout. Work independently
+and report through the task's reviewed communication route. Do not create, inspect,
+steer, or close other agent sessions and do not control transport.
 Explore the open question within the assigned read-only scope. Produce exact
 observations, evidence pointers, reproduction steps, impact, and unknowns. You
 may identify a high-impact seam, but do not settle difficult architectural,

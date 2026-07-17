@@ -72,9 +72,12 @@ instructions.
   version; `scripts/install.sh` resolves a source snapshot and
   `templates/setup/full-opt.sh` performs transparent project adoption. Retired
   `.claude-plugin/` and `.codex-plugin/` packaging must not return accidentally.
-- The five primary Codex role envelopes remain unchanged. Two optional GLM-5.2
-  alternatives may cover only scout and bounded mechanical work; they stay explicit,
-  environment-credentialed profile overlays and never replace the default provider.
+- The five primary Codex authority envelopes remain fixed in count, names, lifecycle,
+  and receipt ownership. Reviewed task-role cards may be composed onto compatible
+  coworker envelopes and bound into launch receipts. The Tech Lead coworker uses Sol
+  `high`; spawned Sol workers use `medium`, Luna workers use `max`, and the two
+  optional GLM-5.2 alternatives use `max`. Sol `xhigh`, `max`, and `ultra` are not
+  coworker launch choices; the separate root envelope is not a coworker choice.
 - The pack obeys its own doctrine: one source of truth, explicit lifecycle, no
   unverified claim shipped as fact.
 
@@ -103,13 +106,15 @@ native or terminal mechanism. Then read `templates/orchestration/model-role-poli
 
 The always-valid boundary is small:
 
-- exactly one root owns task state, validation leases, acceptance, release, and
-  teardown;
+- exactly one root owns session/task lifecycle, validation leases, acceptance,
+  release, and teardown; a designated Tech Lead may own semantic coordination and
+  specialist synthesis but never Herdr lifecycle;
 - do not mix native subagents/background agents with external coworkers;
 - transport status and session identity are attention/continuity signals, never task
   authority or acceptance evidence; and
-- workers receive an open task and safety scope, not backend commands or topology,
-  and cannot self-approve durable work.
+- specialists receive an open task and safety scope, not backend commands or
+  topology, report through bounded artifacts to the Tech Lead, and cannot
+  self-approve durable work.
 
 ## Evidence and task order
 

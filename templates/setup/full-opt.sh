@@ -374,6 +374,7 @@ for shared in README.md coworker-protocol.md model-role-policy.md pilot-run-rece
   stage_file "$source_root/templates/orchestration/$shared" ".orchestration/foundation/$shared"
 done
 stage_tree "$source_root/templates/orchestration/scripts" .orchestration/foundation/scripts
+stage_tree "$source_root/templates/orchestration/roles" .orchestration/foundation/roles
 case "$runtime" in
     codex)
       stage_file "$source_root/templates/orchestration/runtime/codex.md" \

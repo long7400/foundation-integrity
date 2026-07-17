@@ -86,11 +86,11 @@ if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", version):
 
 profile_root = root / "templates/orchestration/profiles/codex"
 primary_profiles = {
-    "fi-root-lead.config.toml": "53bfac1d098197f2c82f08b546f6a4a6eaf0e3cde7d062ee727a12c97ed17577",
-    "fi-peer-scout.config.toml": "63f96d092eef61a65f49cc02cd31c822626f55b84d6ece3ada47e21c5a32bf55",
-    "fi-peer-challenge.config.toml": "3b40d340f3c62443fb66c47dccf60c423802996625e953221b7c20256cf071f9",
-    "fi-implementer-mechanical.config.toml": "f03efb6fa6810167dd82a97a0f8e03134fa9f6ed147ebdbebdfd88ed7060f79b",
-    "fi-implementer-ambiguous.config.toml": "ec4043d13ee0ca526d023d4cd7fd6924acc0fcbfd01571b94a79a56d9d9f9120",
+    "fi-root-lead.config.toml": "27b0baf4172835b548ea3b489939e47f306d5e2c3bf21894d0cdcae9ef2cb6ba",
+    "fi-peer-scout.config.toml": "269dc23611dc6c9d01d797009714259c4d6119dc129b7c3fe904ae5a63d6835f",
+    "fi-peer-challenge.config.toml": "9f5d955ceffb04f9fba7fe60f8be4fb44289961851336fe5720294c89787ad57",
+    "fi-implementer-mechanical.config.toml": "8d158f2758aef86d5df8589d0ca309d6fa034edf22c21c4af28be9ab1dbacd36",
+    "fi-implementer-ambiguous.config.toml": "e42a15c2b877026504fc59fff29bec98e92d2c7bf60de19d81672c5547b2ef5c",
 }
 glm_profiles = {
     "fi-glm-peer-scout.config.toml": ("read-only", "never"),
@@ -260,8 +260,8 @@ if command -v codex >/dev/null 2>&1; then
   profile_home=$(mktemp -d "${TMPDIR:-/tmp}/foundation-integrity-profiles.XXXXXX")
   cp "$root"/templates/orchestration/profiles/codex/*.config.toml "$profile_home/"
   for profile_marker in \
-    "fi-glm-peer-scout|Your launch role is peer with work class scout" \
-    "fi-glm-implementer-mechanical|Your launch role is implementer with work class mechanical"
+    "fi-glm-peer-scout|Your launch authority is read-only peer with work class scout" \
+    "fi-glm-implementer-mechanical|Your launch authority is implementer with work class mechanical"
   do
     profile=${profile_marker%%|*}
     marker=${profile_marker#*|}

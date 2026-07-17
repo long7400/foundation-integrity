@@ -137,9 +137,14 @@ root_profile_attestation=$(CODEX_HOME="$codex_home" \
   python3 "$root/templates/orchestration/scripts/attest-codex-profile.py" fi-root-lead)
 peer_profile_attestation=$(CODEX_HOME="$codex_home" \
   python3 "$root/templates/orchestration/scripts/attest-codex-profile.py" fi-peer-challenge)
+tech_profile_attestation=$(CODEX_HOME="$codex_home" \
+  python3 "$root/templates/orchestration/scripts/attest-codex-profile.py" \
+  fi-peer-challenge --role tech-lead)
 root_argv_json=$(printf '%s\n' "$root_profile_attestation" | python3 -c \
   'import json,sys; value=json.load(sys.stdin); print(json.dumps(["codex", *value["cli_args"]], separators=(",", ":")))')
 peer_argv_json=$(printf '%s\n' "$peer_profile_attestation" | python3 -c \
+  'import json,sys; value=json.load(sys.stdin); print(json.dumps(["codex", *value["cli_args"]], separators=(",", ":")))')
+tech_argv_json=$(printf '%s\n' "$tech_profile_attestation" | python3 -c \
   'import json,sys; value=json.load(sys.stdin); print(json.dumps(["codex", *value["cli_args"]], separators=(",", ":")))')
 write_root_receipt() {
   target=$1
@@ -281,6 +286,28 @@ for variable in HERDR_ENV HERDR_PANE_ID HERDR_TAB_ID HERDR_WORKSPACE_ID HERDR_SO
 done
 grep -Fq 'pane process-info --pane w1:p9' "$fake_log" \
   || fail "start primitive did not attest the foreground process"
+
+tech_launch_receipt=$tmp/team-lead.launch.json
+common_env env FAKE_AGENT_NAME=team-lead FAKE_COWORKER_ARGV_JSON="$tech_argv_json" \
+  sh "$root/templates/orchestration/scripts/start-codex-coworker.sh" \
+  --role tech-lead team-lead fi-peer-challenge "$root" > "$tech_launch_receipt" \
+  || fail "role-bound Tech Lead launch failed"
+python3 - "$tech_launch_receipt" <<'PY' \
+  || fail "Tech Lead launch receipt omitted role provenance"
+import json, pathlib, sys
+value = json.loads(pathlib.Path(sys.argv[1]).read_text())
+assert value["task_role"] == "tech-lead"
+assert value["model"] == "gpt-5.6-sol"
+assert value["effort"] == "high"
+assert len(value["role_sha256"]) == 64
+assert value["role_path"].endswith("/roles/tech-lead.md")
+assert len(value["developer_instructions_sha256"]) == 64
+PY
+if common_env env FAKE_AGENT_NAME=bad-team-lead \
+  sh "$root/templates/orchestration/scripts/start-codex-coworker.sh" \
+  --role tech-lead bad-team-lead fi-implementer-mechanical "$root" >/dev/null 2>&1; then
+  fail "launcher accepted an incompatible Tech Lead profile"
+fi
 
 empty_home=$tmp/empty-home
 mkdir "$empty_home"
@@ -587,5 +614,8 @@ grep -Fq 'pane report-agent-session w1:p9' "$fake_log" \
 if grep -Fq 'report-metadata' "$fake_log"; then
   fail "session continuity hook wrote display metadata"
 fi
+
+sh "$root/tests/coworker-team-contracts.sh" \
+  || fail "coworker team contracts failed"
 
 echo "orchestration contracts: PASS"
