@@ -88,12 +88,13 @@ differing destination profile, writes owner-only state, generates a separate loc
 client key, and binds only to `127.0.0.1`. `remove` stops the process, removes only
 unchanged GLM profile copies, and deletes this gateway's credentials/state.
 
-These two profiles are intentionally outside the primary v2 profile attester and
-receipt-bound coworker launcher. If the root uses them as external coworkers, the
-complete session lifecycle must still go through Herdr—creation, launch, task send,
-bounded wait, output inspection, and teardown—and the root must record gateway health
-plus a credentialed inference/tool smoke. Do not substitute a native subagent or a
-manually spawned terminal agent.
+These two profiles remain outside the primary five-profile ownership manifest, but
+the shared attester and receipt-bound coworker launcher understand their separate GLM
+ownership manifest. Launch additionally requires `FI_CLIPROXY_KEY` and a successful
+gateway doctor check. Their complete session lifecycle still goes through Herdr—
+creation, launch, task send, bounded wait, output inspection, and teardown—and the
+root records gateway health plus a credentialed inference/tool smoke. Do not
+substitute a native subagent or manually spawned terminal agent.
 
 ## Root workflow
 
@@ -116,19 +117,68 @@ replace the root envelope. Then, from the Codex root session:
 herdr agent rename "${HERDR_PANE_ID:?}" fi-root-lead
 export FI_VALIDATION_TOKEN="$(sh .orchestration/foundation/scripts/validation-lease.sh authorize)"
 
-# 1. Start a fresh coworker and retain the bound launch receipt.
+# Single-coworker path: start a fresh coworker and retain the bound launch receipt.
 sh .orchestration/foundation/scripts/start-codex-coworker.sh \
   claim-falsifier fi-peer-challenge >"${TMPDIR:-/tmp}/claim-falsifier.launch.json"
 
-# 2. Type the packet once, press Enter, and verify the pane actually becomes working.
+# Type the packet once, press Enter, and verify the pane actually becomes working.
 sh .orchestration/foundation/scripts/submit-coworker-turn.sh \
   "${TMPDIR:-/tmp}/claim-falsifier.launch.json" \
   < .orchestration/foundation/task-packet.md
 
-# 3. Stop waiting on idle, done, or blocked; print recent output for root inspection.
+# Stop waiting on idle, done, or blocked; print recent output for root inspection.
 sh .orchestration/foundation/scripts/wait-coworker-turn.sh \
   "${TMPDIR:-/tmp}/claim-falsifier.launch.json" 120000 300
 ```
+
+For a 2–4 person team, root owns every launch but semantic coordination goes through
+one Tech Lead. First run the Tech Lead planning turn, then launch one to three
+specialists with reviewed role overlays and submit their open packets:
+
+```sh
+sh .orchestration/foundation/scripts/start-codex-coworker.sh \
+  --role tech-lead team-lead fi-peer-challenge \
+  >"${TMPDIR:-/tmp}/team-lead.launch.json"
+sh .orchestration/foundation/scripts/start-codex-coworker.sh \
+  --role researcher evidence-research fi-peer-scout \
+  >"${TMPDIR:-/tmp}/evidence-research.launch.json"
+sh .orchestration/foundation/scripts/start-codex-coworker.sh \
+  --role tester contract-tester fi-peer-challenge \
+  >"${TMPDIR:-/tmp}/contract-tester.launch.json"
+
+# Submit the Tech Lead planning packet and each specialist packet before fan-in.
+# Each packet names the outcome and report route, never Herdr topology.
+
+team_receipt=$(sh .orchestration/foundation/scripts/start-coworker-team.sh \
+  foundation-review \
+  "${TMPDIR:-/tmp}/team-lead.launch.json" \
+  "${TMPDIR:-/tmp}/evidence-research.launch.json" \
+  "${TMPDIR:-/tmp}/contract-tester.launch.json")
+```
+
+`start-coworker-team.sh` returns immediately after opening one background relay tab.
+Root continues useful independent work and may invoke only the skills applicable to
+that work, loading each body on demand. The relay uses one bounded fan-in loop with
+backoff; it does not create model turns while statuses remain unchanged. It captures
+each terminal specialist output once into a private `$TMPDIR`, passes one artifact
+index to the Tech Lead, and waits for the synthesis. Specialists never send their raw
+reports to root.
+
+“Wake root” means one attention-only prompt after root becomes `idle`. The relay does
+not interrupt a `working` root and does not poll through root model turns. The prompt
+contains only the team receipt/collection command, never raw specialist output:
+
+```sh
+sh .orchestration/foundation/scripts/collect-coworker-team.sh "$team_receipt"
+
+# After root validates and records its decision, close only receipt-owned tabs.
+sh .orchestration/foundation/scripts/close-coworker-team.sh "$team_receipt"
+```
+
+If the synthesis is ready but wake submission fails, collection still succeeds and
+the private state records `wake_error`. A relay failure may wake root once with a
+transport-failure pointer; it cannot interpret specialist meaning, accept work, or
+write canonical repository task state.
 
 `agent send` only writes literal text. The submit primitive therefore presses Enter
 and verifies `working`; if the first Enter races, it retries Enter only, never the task

@@ -2,55 +2,73 @@
 
 **Stop locally correct work from hardening the wrong foundation.**
 
-Foundation Integrity is a small, dual-runtime engineering gate for Claude Code and
-Codex. It tests ownership, source of truth, lifecycle, trust boundaries, dependency
-direction, and system shape before an agent freezes a feature into code, schemas, or
-durable APIs.
+Foundation Integrity is a project-scoped engineering workflow for Codex and Claude
+Code. It checks ownership, source of truth, lifecycle, trust boundaries, dependency
+direction, invariants, and system shape before an agent freezes a feature into code,
+schemas, migrations, or durable interfaces.
 
-Distribution is intentionally shell-only. The adopter is transparent, project-scoped,
-conflict-aware, and does not change global runtime configuration.
+The distribution is shell-only, transparent, conflict-aware, and inert until used.
+It installs 24 skills, proof-selection guidance, proportional hooks, and an optional
+external-coworker policy without changing global runtime configuration.
 
-## 1. The failure mode
+## Project spec
 
-Most agent workflows optimize the path from specification to green tests. That is
-useful when the foundation is sound. When it is not, a capable agent can still make
-the feature pass by adding wrappers, parallel authorities, repeated exceptions, or a
-new compatibility layer around a misunderstood owner.
+| Property | Contract |
+| --- | --- |
+| Goal | Prevent a green local implementation from strengthening the wrong owner, authority, lifecycle, or system archetype. |
+| Supported runtimes | Codex, Claude Code, or both in one repository. |
+| Distribution | One shell adoption lifecycle; `full-opt` is the only payload. |
+| Canonical skill source | `skills/`; runtime copies under `.agents/skills/` and `.claude/skills/` are generated projections. |
+| Skill inventory | Exactly 24 skills: 3 first-party Foundation Integrity skills and 21 commit-pinned companion skills. |
+| Default enforcement | Runtime and pre-commit checks warn; blocking pre-push is opt-in. |
+| Runtime state | `.foundation/`, `tmp/`, local research, receipts, and numbered ADR history are non-canonical working state. |
+| Existing project instructions | Existing `AGENTS.md` and `CLAUDE.md` are never overwritten; a compact `AGENTS.md` is created only when absent. |
+| Acceptance | Feature correctness is necessary but insufficient; acceptance must exercise the architectural property at risk. |
+| Non-goals | No hidden task engine, global configuration takeover, automatic session spawning, or autonomous acceptance authority. |
 
-The local result looks successful while the system gets harder to reason about:
+## Core workflow
 
-```text
-weak foundation
-    -> locally correct workaround
-    -> more authorities and exceptions
-    -> less human and agent comprehension
-    -> stronger dependence on future workarounds
+```mermaid
+flowchart TD
+    A[Idea, bug, or requested change] --> B{Need discovery?}
+    B -->|Idea needs sharpening| C[grill-with-docs]
+    B -->|Hard bug| D[diagnosing-bugs]
+    B -->|Huge or foggy effort| E[wayfinder]
+    B -->|Already clear| F[foundation-audit]
+    C --> F
+    D --> F
+    E --> G[to-spec]
+    F --> H{Outcome}
+    H -->|RESEARCH_ONLY| I[research or prototype]
+    I --> F
+    H -->|NO_GO| J[Stop or contain harm]
+    H -->|PROCEED| G
+    G --> K{Multi-session build?}
+    K -->|Yes| L[to-tickets]
+    K -->|No| M[implement]
+    L --> M
+    M --> N[tdd slices]
+    N --> O[code-review: Standards + Spec]
+    O --> P{Foundation surface changed?}
+    P -->|Yes| Q[Fresh adversarial-foundation-review]
+    P -->|No| R[Root accepts, revises, or rejects]
+    Q --> R
+    R --> S[Periodic foundation-health]
 ```
 
-Foundation Integrity inserts a falsification gate before implementation and requires
-proof of the architectural property at risk—not only proof that the feature works.
+The foundation gate always returns exactly:
 
-## 2. What the pack adds
+- one classification: `FOUNDATION_OK`, `FOUNDATION_SUSPECT`, or
+  `FOUNDATION_BLOCKED`;
+- one outcome: `PROCEED`, `RESEARCH_ONLY`, or `NO_GO`; and
+- one route: Foundation-first, Bounded compatibility, or Feature-first.
 
-| Surface | Purpose |
-| --- | --- |
-| `foundation-audit` | Tries to break the load-bearing claims, then records one classification, outcome, and route. |
-| `adversarial-foundation-review` | Gives a fresh independent session the job of finding the strongest counterexample before durable work is accepted. |
-| `foundation-health` | Reviews cumulative drift across receipts, ADRs, churn, compatibility seams, and recurring exceptions. |
-| Fitness guidance | Helps choose tests, contracts, benchmarks, runtime observations, or structural checks that can expose a fake pass. |
-| Runtime and Git hooks | Provide proportional mismatch signals. The default pre-commit posture warns; pre-push blocking is explicit. |
-| Coworker policy | Defines an optional single-root, multi-session workflow with bounded roles, write scopes, and digest-bound evidence. It remains inert until explicitly activated. |
+Only `PROCEED` unlocks dependent design or implementation. Unknown load-bearing
+facts are research blockers, not assumptions.
 
-The distribution contains exactly 24 skills: three first-party Foundation Integrity
-skills and a 21-skill, commit-pinned workflow companion selected from
-[`mattpocock/skills`](https://github.com/mattpocock/skills). Provenance, hashes,
-license, allowlist, and the local patch ledger live under
-[`third_party/mattpocock-skills/`](./third_party/mattpocock-skills/). The companion
-does not own the foundation gate or coworker authority.
+## Install
 
-## 3. Install in 30 seconds
-
-Run the bootstrap from the target repository. Choose exactly one runtime:
+Run from the target repository and select exactly one runtime mode:
 
 ```bash
 # Codex
@@ -61,306 +79,197 @@ curl -fsSL "https://raw.githubusercontent.com/long7400/foundation-integrity/main
 curl -fsSL "https://raw.githubusercontent.com/long7400/foundation-integrity/main/scripts/install.sh?$(date +%s)" \
   | bash -s -- --claude
 
-# Both runtimes, preview only
+# Both, preview only
 curl -fsSL "https://raw.githubusercontent.com/long7400/foundation-integrity/main/scripts/install.sh?$(date +%s)" \
   | bash -s -- --both --dry-run
 ```
 
-`full-opt` is the only supported payload and is already selected. The explicit
-`--full-opt` flag remains accepted for clarity. Useful options:
+Useful options:
 
 | Option | Effect |
 | --- | --- |
-| `--directory <repo>` | Adopt into a repository other than the current directory. |
-| `--ref <commit-or-tag>` | Resolve and install one immutable source revision. |
-| `--dry-run` | Print the complete effects ledger without mutating the target. |
-| `--with-pre-push` | Add the explicit blocking pre-push tier. |
+| `--directory <repo>` | Install into another repository. |
+| `--ref <commit-or-tag>` | Resolve one immutable source revision. |
+| `--dry-run` | Print the full effects ledger without writing. |
+| `--with-pre-push` | Enable the explicit blocking pre-push tier. |
 | `--no-pre-commit` | Do not newly wire the warn-only pre-commit hook. |
 
-The bootstrap resolves the requested revision, downloads one archive, prints its
-identity, and invokes the project adopter. If you already have a checkout:
+From an existing checkout:
 
 ```bash
 sh templates/setup/full-opt.sh --runtime codex --dry-run /path/to/project
 sh templates/setup/full-opt.sh --runtime codex /path/to/project
 ```
 
-The direct adopter expects the source checkout to have an `origin` remote. For an
-intentional source copy without Git metadata, set `FI_SOURCE_REPOSITORY` explicitly;
-missing source provenance fails closed. The remote bootstrap always supplies it.
+Detailed runtime boundaries:
 
-Read the script or use `--dry-run` before any remote shell execution you do not
-already trust.
+- [Codex installation](./docs/install/codex.md)
+- [Claude Code installation](./docs/install/claude.md)
 
-## 4. The complete workflow
+## How to invoke skills
 
-```mermaid
-flowchart TD
-    A[Non-trivial change] --> B[Foundation audit]
-    B --> C{Outcome}
-    C -->|RESEARCH_ONLY| D[Gather primary evidence]
-    D --> B
-    C -->|NO_GO| E[Stop or contain active harm]
-    C -->|PROCEED| F{Route}
-    F -->|Foundation-first| G[Repair the owner or primitive]
-    F -->|Bounded compatibility| H[Build one owned translation seam]
-    F -->|Feature-first| I[Implement against the surviving foundation]
-    G --> J[Exercise the architectural proof surface]
-    H --> J
-    I --> J
-    J --> K{Foundation surface or mismatch changed?}
-    K -->|Yes| L[Fresh adversarial review]
-    K -->|No| M[Review against spec and standards]
-    L --> M
-    M --> N[Accept, revise, or reject]
-```
-
-### Step 1 — Audit before design freezes
-
-Use the gate before a non-trivial feature, module, migration, refactor, schema,
-security boundary, reliability mechanism, or performance architecture:
+Skills are loaded progressively. Invoke only the skill that matches the current
+phase; do not load all 24 bodies into one context.
 
 ```text
-Use foundation-audit. Audit the foundation this change will load-bear on. Identify
-the owner, source of truth, lifecycle, trust boundaries, dependency direction,
-intended versus observed behavior, mismatch signals, proof surface, and cheapest
-fake pass. Return exactly one classification, one outcome, and one route before
-proposing implementation.
+# Codex
+Use $foundation-audit before designing this change.
+Use $diagnosing-bugs to find the cause; do not implement yet.
+Use $implement for ticket #42.
+
+# Claude Code
+/foundation-audit Audit the foundation before design.
+/diagnosing-bugs Diagnose this regression.
+/implement #42
 ```
 
-The receipt must contain:
+General rules:
 
-- one classification: `FOUNDATION_OK`, `FOUNDATION_SUSPECT`, or
-  `FOUNDATION_BLOCKED`;
-- one outcome: `PROCEED`, `RESEARCH_ONLY`, or `NO_GO`; and
-- one route: Foundation-first, Bounded compatibility, or Feature-first.
+1. Use `ask-matt` when you do not know which companion skill or flow fits.
+2. Run `foundation-audit` before non-trivial design or implementation.
+3. Read a selected skill completely and follow its process; skill descriptions are
+   routing metadata, not the full instructions.
+4. Use a fresh independent session for `adversarial-foundation-review`.
+5. Tracker flows require the installed `docs/agents/issue-tracker.md`,
+   `docs/agents/domain.md`, and `docs/agents/triage-labels.md` configuration.
+6. Workers may produce evidence, code, or recommendations; the root remains the
+   decision and acceptance owner.
 
-Only `PROCEED` unlocks dependent implementation. Unknown load-bearing facts remain
-research blockers.
+## First-party skills
 
-### Step 2 — Implement the chosen route
+| Skill | Use it when | Typical invocation |
+| --- | --- | --- |
+| [`foundation-audit`](./skills/foundation-audit/SKILL.md) | Before a non-trivial feature, module, migration, refactor, or security/reliability/performance change. It falsifies foundation claims and selects the route. | `Use $foundation-audit before architecture is frozen.` |
+| [`adversarial-foundation-review`](./skills/adversarial-foundation-review/SKILL.md) | A foundation surface changed, a mismatch appeared, or a fitness check regressed. Must run in a fresh independent session. | `Use $adversarial-foundation-review to refute this receipt.` |
+| [`foundation-health`](./skills/foundation-health/SKILL.md) | Periodically review cumulative drift, repeated seams, churn, ADRs, receipts, and exceptions outside feature pressure. | `Use $foundation-health for the last three execution waves.` |
 
-- **Foundation-first:** repair or introduce the missing owner/primitive before the
-  dependent feature.
-- **Bounded compatibility:** centralize translation behind one owner, contract,
-  observability surface, lifecycle, and removal condition.
-- **Feature-first:** proceed only because the relevant foundation claims survived
-  the available probes.
+## Companion skills
 
-Apply the smallest containment first if active harm exists. Do not create a second
-authority, bypass a trust boundary, or freeze a known mismatch into durable data.
+The 21 companion skills are a reviewed, commit-pinned selection from
+[`mattpocock/skills`](https://github.com/mattpocock/skills). Local integration patches
+connect them to the foundation gate, project tracker configuration, proof selection,
+and single-root authority. They do not own foundation or coworker acceptance.
 
-### Step 3 — Prove the claim, not the implementation shape
+### Routing, discovery, and planning
 
-Choose the strongest available proof: a test, contract run, dependency check,
-benchmark, runtime observation, migration rehearsal, or visual inspection. Prefer a
-proof that catches the cheapest fake pass and survives harmless internal refactors.
+| Skill | Use it when | Typical invocation |
+| --- | --- | --- |
+| [`ask-matt`](./skills/_third_party/mattpocock/engineering/ask-matt/SKILL.md) | You need the correct skill or flow selected from the current situation. | `Use $ask-matt to route this request.` |
+| [`grill-with-docs`](./skills/_third_party/mattpocock/engineering/grill-with-docs/SKILL.md) | An idea inside a codebase needs a relentless interview plus durable context, glossary, and ADR updates. | `Use $grill-with-docs to sharpen this design.` |
+| [`to-spec`](./skills/_third_party/mattpocock/engineering/to-spec/SKILL.md) | The conversation is sufficiently resolved and should become a buildable spec without another interview. | `Use $to-spec to publish this discussion as a spec.` |
+| [`to-tickets`](./skills/_third_party/mattpocock/engineering/to-tickets/SKILL.md) | A spec or plan must become dependency-linked tracer-bullet tickets sized for fresh sessions. | `Use $to-tickets on the approved spec.` |
+| [`triage`](./skills/_third_party/mattpocock/engineering/triage/SKILL.md) | Raw incoming issues or external PRs need categorisation, verification, clarification, and an agent-ready brief. | `Use $triage on issue #42.` |
+| [`wayfinder`](./skills/_third_party/mattpocock/engineering/wayfinder/SKILL.md) | A greenfield or huge effort is too foggy for one session; map and resolve decision tickets before producing a spec. | `Use $wayfinder for this multi-quarter migration.` |
 
-### Step 4 — Challenge durable work independently
+### Building and verification
 
-After a foundation surface changes, a mismatch signal appears, or a fitness check
-regresses, run `adversarial-foundation-review` in a fresh top-level session. Give the
-reviewer an open falsification question and exact evidence—not the answer you want
-approved. The implementer cannot approve its own durable change.
+| Skill | Use it when | Typical invocation |
+| --- | --- | --- |
+| [`implement`](./skills/_third_party/mattpocock/engineering/implement/SKILL.md) | A reviewed spec or assigned ticket is ready to build. It drives test-first slices and closes with review. | `Use $implement for ticket #42.` |
+| [`tdd`](./skills/_third_party/mattpocock/engineering/tdd/SKILL.md) | You want red-green-refactor, an integration test, or a concrete behavior implemented test-first. | `Use $tdd to add this behavior.` |
+| [`code-review`](./skills/_third_party/mattpocock/engineering/code-review/SKILL.md) | Review a branch, PR, or working diff from a fixed point on two independent axes: repository standards and originating spec. | `Use $code-review since origin/main.` |
+| [`diagnosing-bugs`](./skills/_third_party/mattpocock/engineering/diagnosing-bugs/SKILL.md) | A hard bug, intermittent failure, regression, or performance problem needs a tight reproducible feedback loop before a fix. | `Use $diagnosing-bugs; diagnose only.` |
+| [`resolving-merge-conflicts`](./skills/_third_party/mattpocock/engineering/resolving-merge-conflicts/SKILL.md) | A Git merge or rebase is already in progress and conflicts must be reconciled safely. | `Use $resolving-merge-conflicts.` |
 
-### Step 5 — Review and monitor cumulative health
+### Design, research, and architecture
 
-Run normal code/spec review after the foundation proof. Every few execution waves,
-or when repeated seams and exceptions accumulate, use `foundation-health` to rank
-structural repair work that a single feature receipt cannot see.
+| Skill | Use it when | Typical invocation |
+| --- | --- | --- |
+| [`codebase-design`](./skills/_third_party/mattpocock/engineering/codebase-design/SKILL.md) | Design a deep module, choose a seam, simplify an interface, or improve testability and AI navigability. | `Use $codebase-design for this module seam.` |
+| [`domain-modeling`](./skills/_third_party/mattpocock/engineering/domain-modeling/SKILL.md) | Project terminology is fuzzy or overloaded, or a hard-to-reverse domain decision needs a glossary/ADR. | `Use $domain-modeling to define account ownership.` |
+| [`improve-codebase-architecture`](./skills/_third_party/mattpocock/engineering/improve-codebase-architecture/SKILL.md) | Survey the codebase for deepening opportunities and choose a structural improvement to feed into the main flow. | `Use $improve-codebase-architecture on src/.` |
+| [`prototype`](./skills/_third_party/mattpocock/engineering/prototype/SKILL.md) | A runnable throwaway experiment is the cheapest way to answer one state, logic, or UI design question. | `Use $prototype to test this state model.` |
+| [`research`](./skills/_third_party/mattpocock/engineering/research/SKILL.md) | A question needs primary-source investigation and a cited local Markdown note. | `Use $research for the official API lifecycle.` |
 
-## 5. What installation changes
+### Interviews, context, learning, and skill authoring
 
-| Installed surface | Ownership and behavior |
+| Skill | Use it when | Typical invocation |
+| --- | --- | --- |
+| [`grilling`](./skills/_third_party/mattpocock/productivity/grilling/SKILL.md) | A plan or decision needs a one-question-at-a-time stress test with recommendations. This is the interview primitive. | `Use $grilling on this rollout plan.` |
+| [`grill-me`](./skills/_third_party/mattpocock/productivity/grill-me/SKILL.md) | You need the same relentless interview without a codebase or durable project documents. | `Use $grill-me on my product idea.` |
+| [`handoff`](./skills/_third_party/mattpocock/productivity/handoff/SKILL.md) | A full conversation must move to a fresh session without duplicating existing specs, ADRs, issues, or diffs. | `Use $handoff for an implementation session.` |
+| [`teach`](./skills/_third_party/mattpocock/productivity/teach/SKILL.md) | The user wants to learn a concept over multiple sessions using the workspace as learning state. | `Use $teach to teach me TDD.` |
+| [`writing-great-skills`](./skills/_third_party/mattpocock/productivity/writing-great-skills/SKILL.md) | Create or edit a skill with predictable routing, process, outputs, boundaries, and references. | `Use $writing-great-skills to review this SKILL.md.` |
+
+## Recommended flows
+
+| Situation | Flow |
 | --- | --- |
-| `.agents/skills/` and/or `.claude/skills/` | The selected checked 24-skill projection. Unrelated consumer skills are preserved. |
-| `AGENTS.md` | Created only when absent. Existing `AGENTS.md` and `CLAUDE.md` remain byte-for-byte untouched. |
-| `docs/agents/` and `docs/foundation/` | Project conventions, compact rationale, and proof-selection guidance. |
-| `.codex/hooks/` and/or `.claude/hooks/` | Project-scoped hook scripts and runtime wiring for the selected runtime. |
-| `.orchestration/foundation/` | Static optional coworker policy, selected runtime profiles, and transparent root lifecycle primitives; never activated automatically. |
-| `.gitignore` | A marked block for runtime/process state, projections, local research/receipts, temporary files, and local ADR history. Existing unmanaged lines are preserved. |
-| `.foundation-integrity/adoption.tsv` | Source version/ref/revision, payload digests, file hashes, modes, selected runtime, and managed ownership. |
+| Normal feature | `grill-with-docs → foundation-audit → to-spec → to-tickets → implement → code-review` |
+| Small, already-clear change | `foundation-audit → tdd or implement → code-review` |
+| Hard bug or regression | `diagnosing-bugs → foundation-audit if structural → tdd → code-review` |
+| Huge or unclear initiative | `wayfinder → to-spec → to-tickets → implement` |
+| Design question needs execution | `handoff → prototype → handoff back → foundation-audit` |
+| Incoming issue or PR | `triage → assigned implement → code-review` |
+| Structural maintenance | `foundation-health` and `improve-codebase-architecture`, separate from feature pressure |
+| Foundation-sensitive acceptance | Add a fresh `adversarial-foundation-review` before root acceptance |
 
-The adopter does **not** change global runtime configuration, copy API keys, install
-user profiles, open sessions, enable a coworker backend, publish research notes, or
-overwrite differing project-owned files. A preflight conflict stops before managed
-writes.
+`implement` normally drives `tdd` internally and runs `code-review` before closeout.
+Use those skills directly when you need only that phase.
 
-The installer is conflict-aware and idempotent, not a transactional package manager.
-Its target lock serializes cooperating installer runs; arbitrary concurrent editors
-can still race a shell copy. Postconditions detect surviving incomplete or changed
-managed state, after which the safe response is to inspect the ledger and rerun.
+## Optional external-coworker flow
 
-## 6. Optional coworker flow
+External coworkers are opt-in and require `HERDR_ENV=1`. Do not mix them with native
+subagents or manually started background agents.
 
-The coworker material is an experiment, not the default way to use the pack. Load it
-only when independent external sessions are explicitly requested.
+```text
+Root / CEO
+  ├─ owns all session lifecycle, validation, acceptance, release, and teardown
+  ├─ continues independent work while the team runs
+  └─ starts one bounded relay
 
-Its invariant is small:
+Tech Lead
+  └─ receives immutable specialist artifacts and returns one synthesis to root
 
-- one root owns task state, validation leases, acceptance, release, and teardown;
-- peers are read-only; implementers receive explicit non-overlapping write scopes;
-- native subagents are not mixed with external coworker sessions;
-- session status is an attention signal, never task authority or acceptance proof;
-- workers cannot approve their own durable work.
-
-The five primary Codex profiles remain unchanged:
-
-| Profile | Work class | Model | Access |
-| --- | --- | --- | --- |
-| `fi-root-lead` | control | `gpt-5.6-sol` | workspace write, final authority |
-| `fi-peer-scout` | scout | `gpt-5.6-luna` | read-only observations |
-| `fi-peer-challenge` | challenge | `gpt-5.6-sol` | read-only counterevidence |
-| `fi-implementer-mechanical` | mechanical | `gpt-5.6-luna` | bounded workspace write |
-| `fi-implementer-ambiguous` | ambiguous | `gpt-5.6-sol` | bounded workspace write |
-
-Install and attest those five primary envelopes with the reviewed profile manager:
-
-```bash
-sh .orchestration/foundation/scripts/manage-codex-profiles.sh status
-sh .orchestration/foundation/scripts/manage-codex-profiles.sh install
+1–3 specialists
+  └─ BA, frontend, backend, DevOps, tester, researcher, or scout
 ```
 
-From a Herdr root pane, launch the receipt-bound root and coworkers only through the
-transparent primitives. They bind exact profile bytes, the install manifest,
-effective CLI overrides, process identity, cwd, and root-owned validation authority:
+The relay waits outside model context with bounded backoff. It captures each
+specialist output once, sends one artifact index to the Tech Lead, and wakes root
+only after the synthesis is ready and root is idle. Transport status never becomes
+acceptance evidence. Skills remain progressively loaded by root and coworkers.
 
-```bash
-exec sh .orchestration/foundation/scripts/launch-codex-root.sh \
-  "${TMPDIR:-/tmp}/fi-root.launch.json" "$PWD"
+See:
 
-sh .orchestration/foundation/scripts/start-codex-coworker.sh \
-  claim-falsifier fi-peer-challenge >"${TMPDIR:-/tmp}/claim-falsifier.launch.json"
-```
+- [Coworker protocol](./templates/orchestration/coworker-protocol.md)
+- [Role and model policy](./templates/orchestration/model-role-policy.md)
+- [Codex runtime flow](./templates/orchestration/runtime/codex.md)
 
-Transport status and pane telemetry remain attention/continuity signals, never task
-authority or acceptance evidence. A release claiming this Codex envelope must also
-run the binary-bound runtime tier with a trusted absolute Codex path and an expected
-SHA-256 from an independent authenticated record:
+## Installed surfaces
 
-```bash
-export FI_CODEX_BIN=/absolute/path/to/codex
-export FI_CODEX_SHA256=<independently-recorded-sha256>
-sh tests/codex-orchestration-acceptance.sh
-```
+| Path | Purpose |
+| --- | --- |
+| `.agents/skills/` and/or `.claude/skills/` | Runtime-specific projection of all 24 skills. |
+| `docs/agents/` | Domain, issue-tracker, triage, and foundation conventions. |
+| `docs/foundation/` | Foundation rationale and proof-selection guidance. |
+| `.codex/hooks/` and/or `.claude/hooks/` | Project-scoped runtime hooks and selected wiring. |
+| `.orchestration/foundation/` | Inert coworker policy, roles, profiles, and lifecycle scripts. |
+| `.foundation-integrity/adoption.tsv` | Source revision, payload digest, managed hashes, modes, runtime, and ownership ledger. |
 
-### Optional GLM-5.2 auxiliary profiles
+The adopter preserves unrelated project files and skills. A differing managed file
+is a preflight conflict rather than something to overwrite silently.
 
-Exactly two lower-cost envelopes are active through a local, loopback-only
-compatibility gateway. The five primary Codex profiles and their provider are not
-changed:
+## Maintaining the pack
 
-| Profile | Intended use after compatibility exists | Current status |
-| --- | --- | --- |
-| `fi-glm-peer-scout` | Read-only inventory, evidence collection, reproduction setup | Active through CLIProxyAPI on `127.0.0.1` |
-| `fi-glm-implementer-mechanical` | Well-specified mechanical edits in an explicit write scope | Active through CLIProxyAPI on `127.0.0.1` |
+- Edit canonical skills only under `skills/`.
+- Never directly edit `.agents/skills/` or `.claude/skills/`.
+- `VERSION` owns the release version.
+- `templates/` is distribution input, not a downstream directory layout.
+- Keep runtime/process state non-canonical.
 
-They are not approved for root, challenge, or ambiguous implementation. Both use
-`glm-5.2`, `model_reasoning_effort = "max"`, and an explicit
-`model_context_window = 272000` rather than the model's larger default context.
-
-The placement is intentionally conservative:
-
-| Evidence class | Public result | Interpretation |
-| --- | --- | --- |
-| [Vendor model card](https://huggingface.co/zai-org/GLM-5.2) | Terminal-Bench 2.1: 81.0; SWE-bench Pro: 62.1 | Strong coding signal, but vendor-reported. |
-| [Artificial Analysis](https://artificialanalysis.ai/models/glm-5-2) | Coding Index about 68.76; Agentic Index about 43.06 | Supports bounded coding work more than high-impact coordination. |
-| [Terminal-Bench 2.1](https://artificialanalysis.ai/evaluations/terminalbench-v2-1) and [Hard](https://artificialanalysis.ai/evaluations/terminalbench-hard) | About 77.90% and 50.76% | Independent terminal evidence is strong but not equivalent to architectural judgment. |
-| [Small KernelBench comparison](https://github.com/Infatoshi/kernelbench.com/blob/4756f161c809b62e2533e57be3bd46a377412651/media/make_glm52_4way.py) | Four clean results and two timeouts across six tasks | Useful practical counterevidence; far too small for a general ranking. |
-
-These numbers justify bounded roles only; they do not promote GLM to root,
-challenge, or ambiguous implementation work. The gateway owns the only protocol
-translation seam: Codex speaks Responses to `127.0.0.1`, and the gateway speaks
-Chat Completions to Z.AI. Local end-to-end probes covered text, function calls,
-tool-result continuation, SSE streaming, loopback binding, and teardown.
-
-Set up and run it explicitly:
-
-```bash
-sh .orchestration/foundation/scripts/cliproxy-glm.sh setup
-sh .orchestration/foundation/scripts/cliproxy-glm.sh start
-eval "$(sh .orchestration/foundation/scripts/cliproxy-glm.sh print-env)"
-codex --profile fi-glm-peer-scout
-# or: codex --profile fi-glm-implementer-mechanical
-
-sh .orchestration/foundation/scripts/cliproxy-glm.sh doctor
-sh .orchestration/foundation/scripts/cliproxy-glm.sh stop
-sh .orchestration/foundation/scripts/cliproxy-glm.sh remove
-```
-
-`setup` asks for the Z.AI key without echoing it, verifies the pinned v7.2.80
-macOS/Linux binary checksum, installs only the two GLM profiles into `$CODEX_HOME`,
-stores gateway state under user config/state/data directories with owner-only
-permissions, and generates a separate local client key. It refuses to overwrite a
-differing profile. The upstream key is never written to a profile or repository.
-`remove` stops the process, removes unchanged GLM profile copies, and deletes only
-this gateway state; it does not touch the default Codex provider or five primary
-profiles.
-
-If an earlier direct-integration test left a differing
-`$CODEX_HOME/fi-glm-*.config.toml`, stop any dependent session and remove that old
-test copy first; setup deliberately refuses to overwrite it.
-
-This is a workflow boundary, not an operating-system security boundary. Deliberate
-out-of-band bypasses remain the user's responsibility.
-
-Primary endpoint references: [Z.AI tool integration](https://docs.z.ai/devpack/tool/others)
-and [Coding Plan model selection](https://docs.z.ai/devpack/latest-model).
-
-See [`templates/orchestration/runtime/codex.md`](./templates/orchestration/runtime/codex.md)
-for the Herdr launch contract, gateway lifecycle, and removal flow.
-
-## 7. Update and removal
-
-Re-run the shell bootstrap with a new immutable `--ref`. A managed file is updated or
-removed only when its current hash still matches the previous adoption ledger. A
-consumer edit becomes a conflict instead of being overwritten.
-
-Removal is deliberately ledger-driven rather than destructive:
-
-1. inspect `.foundation-integrity/adoption.tsv`;
-2. verify current hashes and modes;
-3. remove only unchanged recorded files and hooks;
-4. remove the marked Foundation Integrity block from `.gitignore`;
-5. remove the adoption ledger after reconciliation.
-
-Deleting repository templates does not remove user-level profiles already copied to
-`$HOME/.codex/`. Remove those only after no active session depends on them.
-
-## 8. Source-of-truth rules for maintainers
-
-- `skills/` is the only skill authoring source.
-- `.claude/skills/` and `.agents/skills/` are generated runtime projections; never
-  edit them directly.
-- `VERSION` owns the distribution version.
-- `templates/` is authoring input, not a downstream directory layout.
-- `.foundation/` and `tmp/` contain runtime/process state and are never canonical.
-- Research notes and `docs/foundation/receipts/*.md` remain local working evidence.
-  Only `.gitkeep` is tracked for the receipt directory; promote a decision-lossless
-  conclusion to an explicit tracked owner when it truly needs to be shared.
-
-After changing a canonical skill:
+After a canonical skill change:
 
 ```bash
 sh scripts/sync-runtime-skills.sh
 sh tests/repo-contracts.sh
 ```
 
-## 9. Who this is for
-
-Use Foundation Integrity when a codebase has long-lived ownership, data, APIs,
-security boundaries, migrations, or architectural seams—and when “tests are green”
-is not enough evidence that the system became healthier.
-
-It is probably unnecessary for a throwaway script, a clearly local mechanical edit,
-or a prototype whose deletion boundary is explicit. The gate should be proportional;
-it should not turn trivial work into ceremony.
-
-Detailed runtime installation boundaries:
-
-- [Codex installation](./docs/install/codex.md)
-- [Claude Code installation](./docs/install/claude.md)
+Third-party provenance, license, allowlist, exact hashes, and the local patch ledger
+live under [`third_party/mattpocock-skills/`](./third_party/mattpocock-skills/).
 
 ## License
 
-MIT. See [`LICENSE`](./LICENSE).
+Foundation Integrity is MIT licensed. The companion snapshot retains its own MIT
+license and attribution. See [`LICENSE`](./LICENSE) and
+[`third_party/mattpocock-skills/LICENSE`](./third_party/mattpocock-skills/LICENSE).

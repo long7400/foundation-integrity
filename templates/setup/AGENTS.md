@@ -56,6 +56,12 @@ or system shape.
   terminal command, native subagent, or background agent.
 - Use Herdr for creation, task delivery, bounded waits, output inspection, and
   teardown. Never mix native subagents/background agents with Herdr coworkers.
+- Root may invoke applicable skills progressively while coworkers run, but must not
+  bulk-load unrelated skill bodies. In a team, specialists report only to the Tech
+  Lead; only the Tech Lead synthesis enters root context.
+- A root-started `wait-coworker-team` relay may fan in immutable specialist artifacts
+  outside model context. It wakes root once, only after synthesis is ready and root
+  becomes idle; it never interrupts an active root turn or accepts work.
 - If Herdr is unavailable, report the exact blocker and do not substitute another
   mechanism without explicit user acceptance.
 

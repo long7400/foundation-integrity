@@ -123,6 +123,11 @@ assert_full_common() {
     || fail "full-opt omitted fitness guidance"
   [ -f "$target/.orchestration/foundation/coworker-protocol.md" ] \
     || fail "full-opt omitted orchestration policy"
+  [ "$(find "$target/.orchestration/foundation/roles" -maxdepth 1 -type f -name '*.md' | wc -l | tr -d ' ')" = 9 ] \
+    || fail "full-opt omitted reviewed task-role cards"
+  [ -f "$target/.orchestration/foundation/roles/common.md" ] \
+    && [ -f "$target/.orchestration/foundation/roles/tech-lead.md" ] \
+    || fail "full-opt omitted common or Tech Lead role contract"
   [ -x "$target/.git/hooks/pre-commit" ] \
     || fail "full-opt omitted warn-only pre-commit"
   [ ! -e "$target/.git/hooks/pre-push" ] \
@@ -219,6 +224,10 @@ diff -qr "$root/templates/orchestration/profiles/codex" \
   && [ -x "$codex/.orchestration/foundation/scripts/launch-codex-root.sh" ] \
   && [ -x "$codex/.orchestration/foundation/scripts/manage-codex-profiles.sh" ] \
   && [ -x "$codex/.orchestration/foundation/scripts/attest-codex-profile.py" ] \
+  && [ -x "$codex/.orchestration/foundation/scripts/start-coworker-team.sh" ] \
+  && [ -x "$codex/.orchestration/foundation/scripts/wait-coworker-team.py" ] \
+  && [ -x "$codex/.orchestration/foundation/scripts/collect-coworker-team.sh" ] \
+  && [ -x "$codex/.orchestration/foundation/scripts/close-coworker-team.sh" ] \
   && [ -x "$codex/.orchestration/foundation/scripts/validation-lease.sh" ] \
   || fail "Codex orchestration runtime primitives missing"
 [ -f "$codex/.orchestration/foundation/task-packet.md" ] \

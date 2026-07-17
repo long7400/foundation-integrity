@@ -10,8 +10,10 @@ Transport status and pane metadata attract attention; they never approve work.
 
 ## Rules
 
-1. **Use one personnel control plane.** During this pilot, disable native subagents.
-   Coworkers do not spawn or supervise other workers.
+1. **Use one lifecycle control plane.** During this pilot, disable native subagents.
+   Root creates and closes every coworker. A designated Tech Lead may coordinate the
+   meaning of specialist work through bounded artifacts, but no coworker controls
+   Herdr sessions or transport targets.
 2. **Keep topology at the root.** A coworker receives the task, safety scope,
    evidence requirement, and stop condition. It does not receive Herdr commands,
    department structure, or backend policy. This is prompt/context isolation, not a
@@ -28,8 +30,10 @@ Transport status and pane metadata attract attention; they never approve work.
    Root reads the response and validation evidence before deciding.
 6. **Submit visibly.** Type a task packet once, press Enter, and verify a runtime
    transition. If submission races, retry Enter only; never duplicate the prompt.
-7. **Wait boundedly.** Inspect current status before waiting. Treat `idle` and `done`
-   as possible turn completion, surface `blocked`, and time out rather than freezing.
+7. **Wait boundedly.** A root-started team relay may wait outside model context while
+   root performs independent work. Treat `idle` and `done` as possible completion,
+   surface `blocked` to the Tech Lead, and time out rather than freezing. Wake root
+   only after the Tech Lead synthesis is ready or the relay itself fails.
 8. **Serialize expensive evidence.** Before coworkers start, root creates a random
    validation capability. Heavy or flaky validation requires that capability and one
    lease shared across Git worktrees. Record revision, cwd, command, exit status, and
@@ -42,18 +46,21 @@ Transport status and pane metadata attract attention; they never approve work.
 11. **Preserve before teardown.** Read the response, keep disagreement and decisive
     evidence, then mark it accepted, rejected, or cancelled. Close only sessions this
     run created.
-12. **Do not create a hidden workflow engine.** No coworker hierarchy, watcher fleet,
-    task state machine, model matrix, automatic profile rewrite, or FirstMate install.
+12. **Keep the relay bounded and visible.** One root-owned relay may collect immutable
+    specialist artifacts and deliver them to one Tech Lead. It cannot assign work,
+    interpret results, accept output, persist canonical task state, create more
+    agents, become a watcher fleet, rewrite profiles, or install FirstMate.
 
 ## Roles
 
 - **root** — sole controller and decision owner;
-- **peer** — read-only discovery or independent challenge;
+- **peer** — read-only discovery, Tech Lead synthesis, or independent challenge;
 - **implementer** — bounded writer after the foundation route is accepted.
 
-Profiles reduce repeated prompting by fixing a capability envelope. They are not
-access control or proof of the effective launch. Model strength never changes role
-authority.
+Profiles reduce repeated prompting by fixing a capability envelope. Reviewed task
+role cards add BA, FE, BE, DevOps, tester, researcher, scout, or Tech Lead semantics
+without changing lifecycle authority. Profiles and role cards are not access control
+or proof of the effective launch. Model strength never changes authority.
 
 ## Task packet and receipt
 

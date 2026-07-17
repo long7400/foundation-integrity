@@ -18,10 +18,17 @@ as attention signals only. Read the response and validation evidence before
 acceptance. Do not close resources without creation provenance or stop the server.
 Use context, compaction, last-cache, and last-turn metadata only to choose between a
 bounded follow-up and a fresh evidence boundary; they never change task authority.
+When a root-owned team relay is active, continue useful independent work rather than
+issuing model-visible status checks. Treat its eventual wake turn as attention only,
+then collect and inspect the Tech Lead artifact before deciding. Specialists report
+to the Tech Lead through relay-owned temporary artifacts; only the Tech Lead's
+synthesis enters root context.
 
 Choose coworker count from independent dependency units. Launch only canonical
-role envelopes, then send an open task packet after the interactive prompt is
-ready. Do not give workers backend commands or department topology. Hear their
+authority envelopes with reviewed task-role cards, then send an open task packet
+after the interactive prompt is ready. Use applicable repository skills through
+progressive disclosure: read a selected skill completely, but never bulk-load the
+skill catalog. Do not give workers backend commands or transport topology. Hear
 independent evidence before challenging it; do not pre-solve and ask for
 confirmation. Resume only after revalidating the full launch envelope.
 """

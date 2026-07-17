@@ -14,8 +14,13 @@ command -v herdr >/dev/null 2>&1 || { echo "wait coworker: herdr not found" >&2;
 script_dir=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
 
 verify_process() {
-  profile_attestation=$(python3 "$script_dir/attest-codex-profile.py" \
-    "$expected_profile" "$expected_codex_home") || exit 1
+  if [ -n "$expected_role" ]; then
+    profile_attestation=$(python3 "$script_dir/attest-codex-profile.py" \
+      "$expected_profile" "$expected_codex_home" --role "$expected_role") || exit 1
+  else
+    profile_attestation=$(python3 "$script_dir/attest-codex-profile.py" \
+      "$expected_profile" "$expected_codex_home") || exit 1
+  fi
   process_info=$(herdr pane process-info --pane "$expected_pane") || exit 1
   FI_RECEIPT=$receipt FI_PROCESS_INFO=$process_info \
     FI_PROFILE_ATTESTATION=$profile_attestation python3 - <<'PY'
@@ -27,9 +32,14 @@ for receipt_key, profile_key in (
     ("profile", "profile"), ("profile_sha256", "sha256"),
     ("profile_device", "device"), ("profile_inode", "inode"),
     ("profile_path", "path"), ("codex_home", "codex_home"),
+    ("profile_tier", "profile_tier"), ("task_role", "role"),
+    ("role_sha256", "role_sha256"), ("role_path", "role_path"),
 ):
     if receipt.get(receipt_key) != profile.get(profile_key):
         raise SystemExit("wait coworker: profile provenance differs from launch receipt")
+digest = __import__("hashlib").sha256(profile["developer_instructions"].encode("utf-8")).hexdigest()
+if receipt.get("developer_instructions_sha256") != digest:
+    raise SystemExit("wait coworker: effective developer instructions differ from launch receipt")
 matches = [
     item for item in process.get("foreground_processes", [])
     if item.get("argv") == receipt.get("process_argv")
@@ -54,7 +64,7 @@ if value.get("schema") != "foundation-integrity-codex-launch:v2":
     raise SystemExit("wait coworker: invalid launch receipt schema")
 keys = (
     "workspace_id", "tab_id", "pane_id", "terminal_id", "name",
-    "agent_session_id", "profile", "codex_home",
+    "agent_session_id", "profile", "codex_home", "task_role",
 )
 print("\t".join("" if value.get(key) is None else str(value.get(key)) for key in keys))
 PY
@@ -72,7 +82,9 @@ rest=${rest#*	}
 expected_session=${rest%%	*}
 rest=${rest#*	}
 expected_profile=${rest%%	*}
-expected_codex_home=${rest#*	}
+rest=${rest#*	}
+expected_codex_home=${rest%%	*}
+expected_role=${rest#*	}
 
 # Reject a stale/reused pane before entering the attention loop. Recheck again at
 # the terminal observation immediately before collecting output.

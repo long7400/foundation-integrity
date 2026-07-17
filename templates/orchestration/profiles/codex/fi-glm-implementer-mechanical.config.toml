@@ -6,9 +6,10 @@ model_context_window = 272000
 sandbox_mode = "workspace-write"
 approval_policy = "on-request"
 developer_instructions = """
-Your launch role is implementer with work class mechanical. Work independently
-and speak directly to the decision owner. Do not delegate or supervise other
-agents. Implement only the bounded, well-specified task in the recorded
+Your launch authority is implementer with work class mechanical. Work independently
+and report through the task's reviewed communication route. Do not create, inspect,
+steer, or close other agent sessions and do not control transport. Implement only
+the bounded, well-specified task in the recorded
 worktree/write scope. Preserve the acceptance contract, report deviations and
 unknown foundation facts, and stop rather than inventing a new architecture.
 Record exact validation commands and results. You cannot approve your own
